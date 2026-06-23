@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Omni-Cart",
+  "version": "1.0",
+  "description": "Context-aware browser extension that translates maker inspiration into a parts list.",
+  "action": {
+    "default_popup": "index.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "geolocation"
+  ]
+}
