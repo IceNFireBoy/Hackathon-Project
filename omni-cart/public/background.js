@@ -6,29 +6,30 @@ chrome.runtime.onInstalled.addListener(() => {
 function injectContextAwareFetcher(activeTab, sendResponse) {
   const url = activeTab.url;
   
-  // Explicitly log the URL context as requested
   console.log("URL Context:", url);
 
-  let scriptFile = "domFetcher.js"; // Default fallback
+  // Default fallback uses an array now
+  let scriptFiles = ["domFetcher.js"]; 
 
   if (url.includes("youtube.com/watch")) {
-    scriptFile = "youtubeFetcher.js";
+    // INJECT OPENCV FIRST, THEN THE FETCHER
+    scriptFiles = ["opencv.js", "youtubeFetcher.js"];
   } else if (url.includes("youtube.com/shorts")) {
-    scriptFile = "shortsFetcher.js";
+    scriptFiles = ["opencv.js", "shortsFetcher.js"];
   }
 
-  console.log(`Routing match. Injecting: ${scriptFile}`);
+  console.log(`Routing context matched. Injecting sequentially: ${scriptFiles.join(', ')}`);
 
-  // Programmatically inject the script
+  // Programmatically inject the scripts in order
   chrome.scripting.executeScript({
     target: { tabId: activeTab.id },
-    files: [scriptFile]
+    files: scriptFiles // Passes the array
   }, () => {
     if (chrome.runtime.lastError) {
       console.error("Injection error:", chrome.runtime.lastError.message);
       sendResponse({ error: chrome.runtime.lastError.message });
     } else {
-      sendResponse({ status: `Successfully injected ${scriptFile}` });
+      sendResponse({ status: `Successfully injected ${scriptFiles.join(' and ')}` });
     }
   });
 }
@@ -44,7 +45,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
 
-      // Call the new router function
+      // Call the updated router function
       injectContextAwareFetcher(activeTab, sendResponse);
     });
 
