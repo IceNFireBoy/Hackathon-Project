@@ -1,8 +1,8 @@
-// domFetcher.js
-console.log("Omni-Cart: domFetcher.js injected.");
+(function() {
+    console.log("Omni-Cart: domFetcher.js injected.");
 
-function extractArticleText() {
-  try {
+   function extractArticleText() {
+   try {
     // 1. Clone the document to avoid mutating the user's actual webpage
     const documentClone = document.cloneNode(true);
 
@@ -55,3 +55,4 @@ chrome.runtime.sendMessage({
   sourceType: 'article',
   data: articleText
 });
+})();

@@ -1,5 +1,5 @@
-// youtubeFetcher.js
-console.log("Omni-Cart: youtubeFetcher.js injected.");
+(function() {
+    console.log("Omni-Cart: youtubeFetcher.js injected.");
 
 function startVideoSampling() {
   const video = document.querySelector('video');
@@ -92,3 +92,5 @@ function startVideoSampling() {
 
 // Kick off the sequence
 startVideoSampling();
+})();
+
