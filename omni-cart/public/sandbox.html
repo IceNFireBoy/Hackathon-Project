@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <style>
+        body,
+        html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            background-color: #020617;
+            color: white;
+            font-family: sans-serif;
+            overflow: hidden;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
+            border-radius: 0.5rem;
+        }
+
+        #loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="loading">Waiting for component list...</div>
+    <div id="map" style="display: none;"></div>
+
+    <script>
+        // 1. Define the callback function BEFORE loading the Google Maps script
+        function initMap() {
+            window.addEventListener('message', async function (event) {
+                if (event.data && event.data.action === 'RENDER_MAP') {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('map').style.display = 'block';
+
+                    // 2. Import the modern Google Maps libraries dynamically
+                    const { Map } = await google.maps.importLibrary("maps");
+                    const { Place } = await google.maps.importLibrary("places");
+                    const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+
+                    const centerCoords = { lat: 14.5995, lng: 120.9842 }; // Defaults to Manila
+
+                    const map = new Map(document.getElementById('map'), {
+                        center: centerCoords,
+                        zoom: 12,
+                        disableDefaultUI: true,
+                        mapId: "DEMO_MAP_ID" // Mandatory for new Advanced Markers
+                    });
+
+                    // 3. Search using the modern Place library (Bypasses the 2025 deprecation ban)
+                    const request = {
+                        textQuery: 'hardware electronics store',
+                        locationBias: centerCoords,
+                    };
+
+                    try {
+                        const { places } = await Place.searchByText(request);
+
+                        if (places.length > 0) {
+                            places.forEach(place => {
+                                new AdvancedMarkerElement({
+                                    map: map,
+                                    position: place.location,
+                                    title: place.displayName
+                                });
+                            });
+                            // Automatically center the map on the closest store found
+                            map.setCenter(places[0].location);
+                            map.setZoom(14);
+                        }
+                    } catch (error) {
+                        console.error("Omni-Cart Places API error:", error);
+                    }
+                }
+            });
+        }
+    </script>
+
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCLjeNv60yFydv2xhBpRwYvUvjZcE0N9Kk&callback=initMap"></script>
+</body>
+
+</html>

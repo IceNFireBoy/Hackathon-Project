@@ -228,10 +228,31 @@ function App() {
         )}
       </div>
 
-      {/* Footer / CTA (Pinned Bottom) */}
+      {/* Footer / CTA & Sandbox (Pinned Bottom) */}
       {!isAnalyzing && components.length > 0 && (
-        <div className="p-4 pt-2 border-t border-slate-800 shrink-0 bg-slate-950 z-10">
-          <button className="w-full bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-emerald-900/40 transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] tracking-wide">
+        <div className="p-4 pt-2 border-t border-slate-800 shrink-0 bg-slate-950 z-10 flex flex-col space-y-4">
+          
+          {/* Hidden Sandbox iframe - Notice we removed the sandbox attribute and added overflow-hidden! */}
+          <iframe 
+            id="map-sandbox"
+            src="sandbox.html" 
+            className="w-full h-[200px] rounded-lg border border-slate-700/50 hidden overflow-hidden outline-none"
+          ></iframe>
+
+          <button 
+            onClick={() => {
+              // 1. Reveal the iframe visually
+              const iframe = document.getElementById('map-sandbox');
+              iframe.classList.remove('hidden');
+              
+              // 2. Shoot the data payload into the sandbox
+              iframe.contentWindow.postMessage({
+                action: 'RENDER_MAP',
+                components: components.map(c => c.name) // Send just the names
+              }, '*');
+            }}
+            className="w-full bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold py-3 px-4 rounded-lg shadow-lg shadow-emerald-900/40 transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.98] tracking-wide"
+          >
             Find Locally
           </button>
         </div>
