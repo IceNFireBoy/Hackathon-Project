@@ -95,7 +95,7 @@ function App() {
       {/* Header (Pinned Top) */}
       <header className="text-center border-b border-slate-800 p-4 shrink-0 bg-slate-950 z-10 shadow-sm">
         <h1 className="text-2xl font-black tracking-widest text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]">
-          OMNI-CART
+          MOMMY OMNI-CART
         </h1>
         <p className="text-xs text-slate-400 animate-pulse mt-1">{scanStatus}</p>
       </header>

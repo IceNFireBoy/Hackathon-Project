@@ -56,8 +56,9 @@
 
 body {
     margin: 0;
-    width: 320px;
-    height: 400px;
+    padding: 0; 
+    width: 380px;
+    height: 500px;
 }
 
 #root {
@@ -88,6 +89,7 @@ h1 {
     margin: 20px 0;
   }
 }
+
 h2 {
   font-size: 24px;
   line-height: 118%;
