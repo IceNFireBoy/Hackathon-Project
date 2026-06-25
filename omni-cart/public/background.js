@@ -4,73 +4,21 @@ chrome.runtime.onInstalled.addListener(() => {
 
 const tabUrlCache = new Map();
 
-function isYouTubeWatchUrl(url) {
+// Helper to reliably check for YouTube contexts
+function isYouTubeVideoUrl(url) {
   if (!url) return false;
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\./, '');
-    if (host === 'youtu.be') return true;
-    if (host !== 'youtube.com' && host !== 'm.youtube.com') return false;
-    return parsed.pathname === '/watch' || parsed.pathname.startsWith('/watch/');
-  } catch {
-    return url.includes('youtube.com/watch') || url.includes('youtu.be/');
-  }
+  return url.includes('youtube.com/watch') || 
+         url.includes('youtube.com/shorts') || 
+         url.includes('youtu.be/');
 }
 
-function isYouTubeShortsUrl(url) {
-  if (!url) return false;
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\./, '');
-    if (host !== 'youtube.com' && host !== 'm.youtube.com') return false;
-    return parsed.pathname.startsWith('/shorts');
-  } catch {
-    return url.includes('youtube.com/shorts');
-  }
-}
-
+// 1. Unified Context Router
 function resolveScriptChain(url) {
-  if (isYouTubeWatchUrl(url)) {
-    return ['opencv.js', 'youtubeFetcher.js'];
-  }
-  if (isYouTubeShortsUrl(url)) {
-    return ['opencv.js', 'shortsFetcher.js'];
+  if (isYouTubeVideoUrl(url)) {
+    // Pure HTML5 Canvas approach - no OpenCV needed!
+    return ['videoFetcher.js'];
   }
   return ['domFetcher.js'];
-}
-
-function injectScriptsSequentially(tabId, scriptFiles, sendResponse) {
-  if (!scriptFiles.length) {
-    sendResponse({ error: 'No scripts to inject.' });
-    return;
-  }
-
-  const injectNext = (index) => {
-    if (index >= scriptFiles.length) {
-      sendResponse({ status: `Successfully injected ${scriptFiles.join(' → ')}` });
-      return;
-    }
-
-    chrome.scripting.executeScript(
-      {
-        target: { tabId },
-        files: [scriptFiles[index]],
-      },
-      () => {
-        if (chrome.runtime.lastError) {
-          console.error('Injection error:', chrome.runtime.lastError.message);
-          sendResponse({ error: chrome.runtime.lastError.message });
-          return;
-        }
-
-        const isOpenCv = scriptFiles[index] === 'opencv.js';
-        const delayMs = isOpenCv ? 600 : 0;
-        setTimeout(() => injectNext(index + 1), delayMs);
-      }
-    );
-  };
-
-  injectNext(0);
 }
 
 function injectContextAwareFetcher(activeTab, sendResponse) {
@@ -80,20 +28,34 @@ function injectContextAwareFetcher(activeTab, sendResponse) {
   console.log('URL Context:', url);
 
   const scriptFiles = resolveScriptChain(url);
-  console.log(`Routing context matched. Injecting sequentially: ${scriptFiles.join(' → ')}`);
+  console.log(`Routing context matched. Injecting: ${scriptFiles.join(' ')}`);
 
-  injectScriptsSequentially(activeTab.id, scriptFiles, sendResponse);
+  chrome.scripting.executeScript(
+    {
+      target: { tabId: activeTab.id },
+      files: scriptFiles,
+    },
+    () => {
+      if (chrome.runtime.lastError) {
+        console.error('Injection error:', chrome.runtime.lastError.message);
+        sendResponse({ error: chrome.runtime.lastError.message });
+      } else {
+        sendResponse({ status: `Successfully injected ${scriptFiles[0]}` });
+      }
+    }
+  );
 }
 
 function relayToExtensionPages(message) {
   chrome.runtime.sendMessage(message).catch(() => {});
 }
 
+// 2. YouTube SPA (Single Page Application) Route Tracker
 function handleNavigationUpdate(tabId, url) {
   if (!url) return;
   tabUrlCache.set(tabId, url);
 
-  if (isYouTubeWatchUrl(url) || isYouTubeShortsUrl(url)) {
+  if (isYouTubeVideoUrl(url)) {
     console.log(`Omni-Cart: YouTube SPA navigation detected on tab ${tabId}: ${url}`);
   }
 }
@@ -112,6 +74,7 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   tabUrlCache.delete(tabId);
 });
 
+// 3. Main Message Broker
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'START_SCAN' || message.action === 'START_OMNI_SCAN') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
@@ -130,9 +93,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       injectContextAwareFetcher(tabForInjection, sendResponse);
     });
 
-    return true;
+    return true; // Keep channel open for async execution
   }
 
+  // Relay data payloads from fetchers to the React UI
   if (sender.tab && (message.sourceType || message.error)) {
     relayToExtensionPages(message);
   }
