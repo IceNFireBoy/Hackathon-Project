@@ -89,6 +89,7 @@ function ExtensionDashboard() {
 
     if (!iframe || !iframe.contentWindow) return;
 
+<<<<<<< HEAD
     setScanStatus(activeMode === 'online' ? "Loading online options..." : mapIsVisible ? "Recalculating Route..." : "Acquiring GPS Location...");
     iframe.classList.remove('hidden');
     setMapIsVisible(true);
@@ -124,6 +125,7 @@ function ExtensionDashboard() {
           sortMode: activeMode,
           optimizedQuery: searchQuery
         }, '*');
+=======
     setScanStatus(mapIsVisible ? 'Recalculating Route...' : 'Acquiring GPS Location...');
 
     const postToMap = (userLocation) => {
@@ -146,6 +148,7 @@ function ExtensionDashboard() {
       () => {
         setScanStatus('Using Regional Base Location...');
         postToMap({ lat: 14.6507, lng: 121.1029 });
+>>>>>>> 043c87775edfedee59e0b3d37bee58d894dc4dcf
       },
       { enableHighAccuracy: true, timeout: 7000 }
     );
