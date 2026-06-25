@@ -11,11 +11,8 @@ function injectContextAwareFetcher(activeTab, sendResponse) {
   // Default fallback uses an array now
   let scriptFiles = ["domFetcher.js"]; 
 
-  if (url.includes("youtube.com/watch")) {
-    // INJECT OPENCV FIRST, THEN THE FETCHER
-    scriptFiles = ["opencv.js", "youtubeFetcher.js"];
-  } else if (url.includes("youtube.com/shorts")) {
-    scriptFiles = ["opencv.js", "shortsFetcher.js"];
+  if (url.includes("youtube.com/watch") || url.includes("youtube.com/shorts")) {
+    scriptFiles = ["videoFetcher.js"];
   }
 
   console.log(`Routing context matched. Injecting sequentially: ${scriptFiles.join(', ')}`);
