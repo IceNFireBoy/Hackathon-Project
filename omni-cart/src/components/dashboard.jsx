@@ -3,7 +3,7 @@ const NAV_ITEMS = [
   { id: 'builder', label: "Anti-Fry Matrix" },
   { id: 'metrics', label: 'Procurement' },
   { id: 'archive', label: 'Saved Builds' },
-  { id: 'commerce', label: 'E-Commerce' },
+  { id: 'commerce', label: 'E-Commerce Aggregator' },
 ];
 
 export function KpiCard({ label, value, unit, accent = 'accent' }) {
@@ -37,7 +37,7 @@ export function PageHeader({ title, subtitle, children }) {
   );
 }
 
-export function SidebarNav({ activeView, onNavigate, mobileOpen, onMobileClose }) {
+export function SidebarNav({ activeView, onNavigate, mobileOpen, onMobileClose, footer }) {
   return (
     <>
       {mobileOpen && (
@@ -82,7 +82,7 @@ export function SidebarNav({ activeView, onNavigate, mobileOpen, onMobileClose }
         </nav>
 
         <div className="p-4 border-t border-surface-card text-[10px] text-slate-600">
-          Prototype Demo · v0.1
+          {footer || 'Prototype Demo · v0.1'}
         </div>
       </aside>
     </>

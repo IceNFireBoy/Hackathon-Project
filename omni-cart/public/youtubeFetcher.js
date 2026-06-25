@@ -1,44 +1,67 @@
-(function() {
-    console.log("Omni-Cart: youtubeFetcher.js injected.");
+(function () {
+  console.log('Omni-Cart: youtubeFetcher.js injected.');
 
-function startVideoSampling() {
-  const video = document.querySelector('video');
-  
-  if (!video) {
-    console.error("Omni-Cart: No video element found.");
-    chrome.runtime.sendMessage({ error: "No video found on page." });
-    return;
+  let payloadSent = false;
+
+  function dispatchError(message) {
+    if (payloadSent) return;
+    payloadSent = true;
+    console.error('Omni-Cart:', message);
+    chrome.runtime.sendMessage({ error: message }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('Omni-Cart error dispatch:', chrome.runtime.lastError.message);
+      }
+    });
   }
 
-  // Ensure OpenCV is available in the content script environment
-  if (typeof cv === 'undefined') {
-    console.error("Omni-Cart: OpenCV.js is not loaded.");
-    chrome.runtime.sendMessage({ error: "Computer Vision library missing." });
-    return;
+  function dispatchPayload(frames) {
+    if (payloadSent) return;
+    if (!frames || frames.length === 0) {
+      dispatchError('No usable video frames captured.');
+      return;
+    }
+    payloadSent = true;
+    console.log('Omni-Cart: Dispatching', frames.length, 'frame(s) to extension UI.');
+    chrome.runtime.sendMessage(
+      { sourceType: 'video_frames', data: frames },
+      () => {
+        if (chrome.runtime.lastError) {
+          console.warn('Omni-Cart payload dispatch:', chrome.runtime.lastError.message);
+        }
+      }
+    );
   }
 
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d', { willReadFrequently: true });
-  
-  let frames = [];
-  let sampleCount = 0;
-  const MAX_SAMPLES = 6; // Stop after 30 seconds (6 samples) to return data quickly
+  function waitForOpenCvReady(onReady, onFail, attempt = 0) {
+    try {
+      if (typeof cv !== 'undefined') {
+        if (cv.Mat) {
+          onReady();
+          return;
+        }
+        cv.onRuntimeInitialized = () => {
+          try {
+            onReady();
+          } catch (err) {
+            onFail(`OpenCV runtime init failed: ${err.message}`);
+          }
+        };
+        return;
+      }
+    } catch (err) {
+      onFail(`OpenCV check failed: ${err.message}`);
+      return;
+    }
 
-  console.log("Omni-Cart: Starting 5-second interval sampling...");
+    if (attempt >= 80) {
+      onFail('Computer Vision library missing or timed out.');
+      return;
+    }
 
-  const intervalId = setInterval(() => {
-    // Stop if video is paused or ended
-    if (video.paused || video.ended) return;
+    setTimeout(() => waitForOpenCvReady(onReady, onFail, attempt + 1), 250);
+  }
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    
-    // 1. Capture the frame
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    const base64Image = canvas.toDataURL('image/jpeg', 0.8); // 0.8 compression to save payload size
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-    // 2. OpenCV Sharpness Calculation
+  function scoreFrame(imageData) {
     let src = cv.matFromImageData(imageData);
     let gray = new cv.Mat();
     let lap = new cv.Mat();
@@ -46,51 +69,115 @@ function startVideoSampling() {
     let stddev = new cv.Mat();
 
     try {
-      // Convert to grayscale
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      // Apply Laplacian filter
       cv.Laplacian(gray, lap, cv.CV_64F);
-      // Calculate standard deviation
       cv.meanStdDev(lap, mean, stddev);
-      
-      // Variance = Standard Deviation squared
-      let stdevValue = stddev.doubleAt(0, 0);
-      let variance = stdevValue * stdevValue;
-
-      frames.push({ variance: variance, image: base64Image });
-      console.log(`Frame ${sampleCount + 1} captured. Sharpness score: ${variance.toFixed(2)}`);
-
-    } catch (err) {
-      console.error("OpenCV Processing Error:", err);
+      const stdevValue = stddev.doubleAt(0, 0);
+      return stdevValue * stdevValue;
     } finally {
-      // CRITICAL: Prevent memory leaks by explicitly deleting matrices
-      src.delete(); gray.delete(); lap.delete(); mean.delete(); stddev.delete();
+      src.delete();
+      gray.delete();
+      lap.delete();
+      mean.delete();
+      stddev.delete();
+    }
+  }
+
+  async function captureFrame(video, canvas, ctx) {
+    if (!video.videoWidth || !video.videoHeight) {
+      return null;
     }
 
-    sampleCount++;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // 3. Evaluate and send payload
-    if (sampleCount >= MAX_SAMPLES) {
-      clearInterval(intervalId);
-      
-      // Sort descending (highest variance = sharpest)
+    const base64Image = canvas.toDataURL('image/jpeg', 0.8);
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    try {
+      const variance = scoreFrame(imageData);
+      return { variance, image: base64Image };
+    } catch (err) {
+      console.warn('Omni-Cart frame scoring fallback:', err.message);
+      return { variance: 0, image: base64Image };
+    }
+  }
+
+  async function startVideoSampling() {
+    const wallTimeout = setTimeout(() => {
+      dispatchError('Video sampling timed out. Ensure the video is playing and try again.');
+    }, 25000);
+
+    try {
+      const video = document.querySelector('video');
+
+      if (!video) {
+        clearTimeout(wallTimeout);
+        dispatchError('No video found on page.');
+        return;
+      }
+
+      if (video.readyState < 2) {
+        await new Promise((resolve, reject) => {
+          const readyTimeout = setTimeout(() => reject(new Error('Video not ready.')), 8000);
+          video.addEventListener('loadeddata', () => {
+            clearTimeout(readyTimeout);
+            resolve();
+          }, { once: true });
+        }).catch((err) => {
+          clearTimeout(wallTimeout);
+          dispatchError(err.message);
+        });
+        if (payloadSent) return;
+      }
+
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d', { willReadFrequently: true });
+      const frames = [];
+      const TARGET_SAMPLES = 4;
+      const INTERVAL_MS = 1500;
+
+      console.log('Omni-Cart: Starting adaptive frame sampling…');
+
+      for (let i = 0; i < TARGET_SAMPLES; i += 1) {
+        if (payloadSent) return;
+
+        const frame = await captureFrame(video, canvas, ctx);
+        if (frame) {
+          frames.push(frame);
+          console.log(`Frame ${i + 1} captured. Sharpness: ${frame.variance.toFixed(2)}`);
+        }
+
+        if (i < TARGET_SAMPLES - 1) {
+          await new Promise((resolve) => setTimeout(resolve, INTERVAL_MS));
+        }
+      }
+
+      clearTimeout(wallTimeout);
+
+      if (frames.length === 0) {
+        dispatchError('Could not capture frames from the video player.');
+        return;
+      }
+
       frames.sort((a, b) => b.variance - a.variance);
-      
-      // Keep only top 3
-      const top3Frames = frames.slice(0, 3).map(f => f.image);
-      
-      console.log("Omni-Cart: Sampling complete. Dispatching top 3 frames to UI.");
-      
-      chrome.runtime.sendMessage({
-        sourceType: 'video_frames',
-        data: top3Frames
-      });
+      const top3Frames = frames.slice(0, 3).map((f) => f.image);
+      dispatchPayload(top3Frames);
+    } catch (err) {
+      clearTimeout(wallTimeout);
+      dispatchError(`Video sampling failed: ${err.message}`);
     }
+  }
 
-  }, 5000); // 5000ms = 5 seconds
-}
-
-// Kick off the sequence
-startVideoSampling();
+  waitForOpenCvReady(
+    () => {
+      try {
+        startVideoSampling();
+      } catch (err) {
+        dispatchError(`Sampler crashed: ${err.message}`);
+      }
+    },
+    dispatchError
+  );
 })();
-
