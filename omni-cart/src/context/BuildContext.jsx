@@ -55,6 +55,10 @@ export function BuildProvider({ children }) {
   const [scrapeLoading, setScrapeLoading] = useState(false);
   const [scrapeError, setScrapeError] = useState(null);
 
+  const [inspirationVideos, setInspirationVideos] = useState([]);
+  const [inspirationLoading, setInspirationLoading] = useState(false);
+  const [inspirationError, setInspirationError] = useState(null);
+
   const lastAppliedScrapeRef = useRef('');
   const buildSlotsRef = useRef(buildSlots);
   buildSlotsRef.current = buildSlots;
@@ -117,9 +121,43 @@ export function BuildProvider({ children }) {
     }
   }, []);
 
+  const refreshInspiration = useCallback(async () => {
+    const components = slotsToComponentList(buildSlotsRef.current);
+    if (!components.length) {
+      setInspirationVideos([]);
+      return;
+    }
+
+    setInspirationLoading(true);
+    setInspirationError(null);
+
+    try {
+      const query = `${components[0].name} tutorial`;
+      const response = await fetch(`${API_BASE_URL}/fetch-inspiration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text();
+        throw new Error(text.substring(0, 120) || `Inspiration fetch returned ${response.status}`);
+      }
+
+      const data = await response.json();
+      setInspirationVideos(data.videos || []);
+    } catch (err) {
+      setInspirationError(err.message);
+      setInspirationVideos([]);
+    } finally {
+      setInspirationLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     refreshScrape();
-  }, [componentNamesKey, refreshScrape]);
+    refreshInspiration();
+  }, [componentNamesKey, refreshScrape, refreshInspiration]);
 
   const hydrateFromComponents = useCallback((components, cartMeta = {}) => {
     const slots = componentsToBuildSlots(components);
@@ -286,6 +324,10 @@ export function BuildProvider({ children }) {
         scrapeError,
         estimatedTotal,
         refreshScrape,
+        inspirationVideos,
+        inspirationLoading,
+        inspirationError,
+        refreshInspiration,
         importCart,
         clearImportedCart,
         mergeComponentsFromIngestion,
