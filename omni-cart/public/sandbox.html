@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
         body,
         html {
@@ -29,65 +31,168 @@
             font-size: 12px;
             color: #94a3b8;
         }
+
+        #route-info {
+            display: none;
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(2, 6, 23, 0.95);
+            border: 1px solid #10b981;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.8);
+            z-index: 10;
+            text-align: center;
+            white-space: nowrap;
+            line-height: 1.4;
+        }
+
+        .text-emerald {
+            color: #34d399;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .badge-trusted {
+            color: #fbbf24;
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        .badge-closest {
+            color: #60a5fa;
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 0.5px;
+            margin-top: 2px;
+        }
+
+        .rating-text {
+            color: #cbd5e1;
+            font-size: 11px;
+            margin: 4px 0;
+        }
     </style>
 </head>
 
 <body>
-    <div id="loading">Waiting for component list...</div>
+    <div id="loading">Waiting for data...</div>
     <div id="map" style="display: none;"></div>
+    <div id="route-info"></div>
 
     <script>
-        // 1. Define the callback function BEFORE loading the Google Maps script
+        function getLinearDistance(p1, p2) {
+                // Safely extract coordinates whether they are flat objects or Google LatLng methods
+                const lat1 = typeof p1.lat === 'function' ? p1.lat() : p1.lat;
+                const lng1 = typeof p1.lng === 'function' ? p1.lng() : p1.lng;
+                const lat2 = typeof p2.lat === 'function' ? p2.lat() : p2.lat;
+                const lng2 = typeof p2.lng === 'function' ? p2.lng() : p2.lng;
+
+                return Math.hypot(lat1 - lat2, lng1 - lng2);
+            }
+
         function initMap() {
             window.addEventListener('message', async function (event) {
                 if (event.data && event.data.action === 'RENDER_MAP') {
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('map').style.display = 'block';
 
-                    // 2. Import the modern Google Maps libraries dynamically
                     const { Map } = await google.maps.importLibrary("maps");
                     const { Place } = await google.maps.importLibrary("places");
                     const { AdvancedMarkerElement } = await google.maps.importLibrary("marker");
+                    const { DirectionsService, DirectionsRenderer } = await google.maps.importLibrary("routes");
 
-                    const centerCoords = { lat: 14.5995, lng: 120.9842 }; // Defaults to Manila
+                    const userLoc = event.data.userLocation || { lat: 14.6507, lng: 121.1029 };
+                    const sortMode = event.data.sortMode || 'trusted';
+
+                    // NEW: Retrieve the AI-generated query
+                    const aiQuery = event.data.optimizedQuery || "electronic components parts";
 
                     const map = new Map(document.getElementById('map'), {
-                        center: centerCoords,
-                        zoom: 12,
-                        disableDefaultUI: true,
-                        mapId: "DEMO_MAP_ID" // Mandatory for new Advanced Markers
+                        center: userLoc, zoom: 12, disableDefaultUI: true, mapId: "DEMO_MAP_ID"
                     });
 
-                    // 3. Search using the modern Place library (Bypasses the 2025 deprecation ban)
+                    const directionsService = new DirectionsService();
+                    const directionsRenderer = new DirectionsRenderer({ map: map, suppressMarkers: true });
+
+                    function calculateAndDisplayRoute(place, isTopRank) {
+                        directionsService.route({
+                            origin: userLoc,
+                            destination: place.location,
+                            travelMode: google.maps.TravelMode.DRIVING
+                        }, (response, status) => {
+                            if (status === 'OK') {
+                                directionsRenderer.setDirections(response);
+                                const leg = response.routes[0].legs[0];
+                                const infoDiv = document.getElementById('route-info');
+
+                                const ratingDisplay = place.rating ? `⭐ ${place.rating} (${place.userRatingCount} reviews)` : `New / Unrated`;
+
+                                let badgeDisplay = '';
+                                if (isTopRank) {
+                                    badgeDisplay = sortMode === 'trusted'
+                                        ? `<div class="badge-trusted">🏆 Most Trusted Match</div>`
+                                        : `<div class="badge-closest">📍 Closest Match</div>`;
+                                }
+
+                                infoDiv.innerHTML = `
+                                    <span class="text-emerald">${place.displayName}</span>
+                                    ${badgeDisplay}
+                                    <div class="rating-text">${ratingDisplay}</div>
+                                    ${leg.distance.text} • ${leg.duration.text} drive
+                                `;
+                                infoDiv.style.display = 'block';
+                            }
+                        });
+                    }
+
+                    // NEW: Combine the AI context string with the local Philippine anchors
                     const request = {
-                        textQuery: 'hardware electronics store',
-                        locationBias: centerCoords,
+                        textQuery: `${aiQuery} shop Deeco Alexan e-Gizmo Makerlab`,
+                        locationBias: userLoc,
+                        fields: ['displayName', 'location', 'rating', 'userRatingCount']
                     };
 
                     try {
                         const { places } = await Place.searchByText(request);
 
-                        if (places.length > 0) {
-                            places.forEach(place => {
-                                new AdvancedMarkerElement({
-                                    map: map,
-                                    position: place.location,
-                                    title: place.displayName
-                                });
+                        if (places && places.length > 0) {
+
+                            const blockedWords = /vape|appliance|laundry|grocery|restaurant|cafe/i;
+                            let validPlaces = places.filter(place => !blockedWords.test(place.displayName));
+
+                            if (validPlaces.length === 0) validPlaces = places;
+
+                            if (sortMode === 'distance') {
+                                validPlaces.sort((a, b) => getLinearDistance(userLoc, a.location) - getLinearDistance(userLoc, b.location));
+                            }
+
+                            validPlaces.forEach((place, index) => {
+                                const marker = new AdvancedMarkerElement({ map: map, position: place.location, title: place.displayName });
+                                marker.addListener('gmp-click', () => calculateAndDisplayRoute(place, index === 0));
                             });
-                            // Automatically center the map on the closest store found
-                            map.setCenter(places[0].location);
-                            map.setZoom(14);
+
+                            calculateAndDisplayRoute(validPlaces[0], true);
+
+                        } else {
+                            console.log("Omni-Cart: No matches found.");
                         }
                     } catch (error) {
-                        console.error("Omni-Cart Places API error:", error);
+                        console.error("Omni-Cart API error:", error);
                     }
                 }
             });
         }
     </script>
-
-    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCLjeNv60yFydv2xhBpRwYvUvjZcE0N9Kk&callback=initMap"></script>
+    <script async
+        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCLjeNv60yFydv2xhBpRwYvUvjZcE0N9Kk&callback=initMap&loading=async"></script>
 </body>
 
 </html>
