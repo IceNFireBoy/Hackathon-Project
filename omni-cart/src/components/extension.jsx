@@ -1,5 +1,6 @@
 import { Button, Card, CardRow, ConfidencePill, SectionHeader, SkeletonCard } from './ui';
 import { useAnalyzeParts } from '../hooks/useAnalyzeParts';
+import { useState, useEffect } from 'react';
 
 function statusColor(status) {
   if (status.includes('Error') || status.includes('failed')) return 'text-critical';
@@ -163,9 +164,50 @@ export function MapPanel({
   sortMode,
   onFindLocally,
   onSortChange,
+  components = [],
 }) {
+
+const [showVideos, setShowVideos] = useState(false);
+const [videoLinks, setVideoLinks] = useState([]);
+
+useEffect(() => {
+  if (showVideos && components.length > 0 && videoLinks.length === 0) {
+    const query = encodeURIComponent(components[0].name + " tutorial");
+    const apiKey = "AIzaSyBobDXg-u9vP8unjdEgKw7P-Ijdc_-1eGk"; // Your key directly for testing
+
+    fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=5&q=${query}&type=video&key=${apiKey}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.items) {
+          setVideoLinks(data.items.map(item => ({
+            title: item.snippet.title,
+            url: `https://www.youtube.com/watch?v=${item.id.videoId}`
+          })));
+        } else {
+          console.error("API Error or no videos:", data);
+        }
+      })
+      .catch(err => console.error("Fetch failed:", err));
+  }
+}, [showVideos, components]);
+
   return (
     <div className="p-3 pt-2 border-t border-surface-card/60 shrink-0 bg-surface-base z-10 flex flex-col space-y-2">
+      
+        {showVideos ? (
+          <div className="bg-surface-raised p-2 rounded border border-surface-card text-xs h-[220px] overflow-y-auto space-y-1">
+            <p className="text-accent font-bold mb-2">ito gusto mo diba</p>
+              {videoLinks.length > 0 ? videoLinks.map((vid, i) => (
+                <p key = {i}>
+                  <a href = {vid.url} target = "_blank" rel = "noreferrer" className = "text-slate-200 hover:text-accent underline">
+                    {i + 1}. {vid.title}
+                  </a>
+                </p>
+              )) : (
+              <p className = "text-slate-500">DI NAG SCAN EDI WALANG LINK</p>
+              )}
+          </div>
+        ) : ( 
       <div
         className={`transition-all duration-300 overflow-hidden rounded-lg border border-surface-card bg-surface-raised ${
           mapIsVisible ? 'h-[220px] opacity-100' : 'h-0 opacity-0 border-0'
@@ -181,6 +223,17 @@ export function MapPanel({
           className="w-full h-full rounded-lg"
         />
       </div>
+      )}
+
+      <div className="flex flex-col gap-2">
+          <Button
+            variant ="outline"
+            className="w-full"
+            onClick={() => setShowVideos(!showVideos)}
+          >
+           {showVideos ? "Back to Map" : "MARAMING BIDYO"} 
+          </Button>
+          </div>
 
       {mapIsVisible ? (
         <div className="flex space-x-2">

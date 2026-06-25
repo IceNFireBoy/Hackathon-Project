@@ -202,6 +202,7 @@ function ExtensionDashboard() {
           sortMode={sortMode}
           onFindLocally={triggerMapRender}
           onSortChange={handleSortChange}
+          components={components}
         />
       )}
     </div>
