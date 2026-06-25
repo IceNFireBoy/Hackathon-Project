@@ -52,9 +52,9 @@ exports.handler = async function (event, context) {
 
     // The Adaptive Cascade Configuration (Model, Frame Limit, Timeout in ms)
     const cascadeConfigs = [
-      { modelName: "gemini-3.5-flash", maxFrames: 3, timeoutMs: 4500 },     // Tier 1: 3 frames, 4.5s deadline
-      { modelName: "gemini-3.1-flash-lite", maxFrames: 1, timeoutMs: 3000 },// Tier 2: 1 frame, 3.0s deadline
-      { modelName: "gemini-2.5-flash", maxFrames: 1, timeoutMs: 2000 }      // Tier 3: 1 frame, 2.0s deadline
+      { modelName: "gemini-3.5-flash", maxFrames: 3, timeoutMs: 8000 },     // Tier 1: 3 frames, 8.0s deadline
+      { modelName: "gemini-3.1-flash-lite", maxFrames: 1, timeoutMs: 5000 },// Tier 2: 1 frame, 5.0s deadline
+      { modelName: "gemini-2.5-flash", maxFrames: 1, timeoutMs: 4000 }      // Tier 3: 1 frame, 4.0s deadline
     ];
     
     let result = null;
@@ -77,20 +77,27 @@ exports.handler = async function (event, context) {
         const currentModel = genAI.getGenerativeModel({
           model: config.modelName,
           systemInstruction: `You are an expert electronics and hardware engineering assistant. 
-          Your task is to analyze the provided text data or images and extract a list of physical electronic components, tools, or hardware parts required for the build. 
           
-          CRITICAL CONTEXTUAL RULE: You must evaluate the context of how a part is mentioned. If the text explicitly states NOT to use a component, or mentions it as a rejected alternative, you MUST OMIT IT entirely from your output.
+          TASK 1: EXHAUSTIVE EXTRACTION (PRIORITY)
+          Analyze the provided text data or images and extract an EXHAUSTIVE, COMPLETE list of every single physical electronic component, tool, or hardware part required. Do not miss any minor parts (e.g., resistors, jumper wires, specific ICs).
+          CRITICAL CONTEXTUAL RULE: If the text explicitly states NOT to use a component, or mentions it as a rejected alternative, you MUST OMIT IT entirely.
           
-          You must output ONLY a valid JSON array matching the schema below. Do not wrap the output in markdown text. If a quantity is visible or stated, extract it as an integer. If unsure, default to 1.
+          TASK 2: SEARCH OPTIMIZATION
+          Generate a highly optimized 4-to-6 word search query to find these specific parts in a local hobbyist electronics store on Google Maps. 
+          
+          You must output ONLY a valid JSON object matching the schema below. Do not wrap the output in markdown text.
           
           Required JSON Schema Format:
-          [
-            {
-              "name": "Component Name (e.g., Arduino Uno R3, 10k Resistor)",
-              "quantity": 2,
-              "confidence_score": 0.95 
-            }
-          ]`,
+          {
+            "components": [
+              {
+                "name": "Component Name (e.g., Arduino Uno R3, 10k Resistor)",
+                "quantity": 2,
+                "confidence_score": 0.95 
+              }
+            ],
+            "optimized_maps_query": "hobbyist electronics robotics parts supplier"
+          }`,
           generationConfig: { responseMimeType: "application/json", temperature: 0.1 }
         });
 
