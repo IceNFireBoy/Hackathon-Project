@@ -43,54 +43,6 @@ export function mapComponentToCategory(name) {
   return 'connector';
 }
 
-export const INSPIRATION_VIDEOS = [
-  {
-    id: 'v1',
-    title: 'Build a Line Follower in 10 Minutes',
-    channel: 'DroneBot Workshop',
-    thumbnailUrl: '',
-    duration: '10:24',
-    gradient: 'from-[#2A2929] to-[#444342]',
-    accent: '#FFB700',
-  },
-  {
-    id: 'v2',
-    title: 'ESP32 IoT Weather Station Tutorial',
-    channel: 'Random Nerd Tutorials',
-    thumbnailUrl: '',
-    duration: '18:45',
-    gradient: 'from-[#0F0F0F] to-[#2A2929]',
-    accent: '#FFD000',
-  },
-  {
-    id: 'v3',
-    title: 'Logic Level Shifters Explained',
-    channel: 'GreatScott!',
-    thumbnailUrl: '',
-    duration: '8:12',
-    gradient: 'from-[#444342] to-[#2A2929]',
-    accent: '#FFB700',
-  },
-  {
-    id: 'v4',
-    title: 'Sumo Bot Build Guide',
-    channel: 'ElectroBOOM',
-    thumbnailUrl: '',
-    duration: '14:30',
-    gradient: 'from-[#2A2929] to-[#0F0F0F]',
-    accent: '#FFD000',
-  },
-  {
-    id: 'v5',
-    title: 'Arduino vs ESP32 — Which to Choose?',
-    channel: 'ExplainingComputers',
-    thumbnailUrl: '',
-    duration: '12:08',
-    gradient: 'from-[#444342] to-[#0F0F0F]',
-    accent: '#FFB700',
-  },
-];
-
 export const PRICE_LISTINGS = [
   { id: 'p1', partName: 'Arduino Uno R3', store: 'Shopee', pricePHP: 799, stock: 'In Stock', url: '#' },
   { id: 'p2', partName: 'Arduino Uno R3', store: 'Lazada', pricePHP: 850, stock: 'Low Stock', url: '#' },

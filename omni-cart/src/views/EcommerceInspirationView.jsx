@@ -2,7 +2,6 @@ import { useMemo, useState, useRef } from 'react';
 import { PageHeader } from '../components/dashboard';
 import { Card, Badge, Button, SkeletonCard } from '../components/ui';
 import { useBuildContext } from '../context/BuildContext';
-import { INSPIRATION_VIDEOS } from '../mocks';
 
 const activeFilterClass = 'bg-accent-muted text-accent-bright border-accent/30';
 const inactiveFilterClass = 'text-slate-400 border-surface-card hover:border-accent/30 hover:text-accent';
@@ -27,7 +26,10 @@ function sortListings(listings, sortBy) {
 }
 
 export default function EcommerceInspirationView() {
-  const { scrapeListings, scrapeLoading, scrapeError, refreshScrape } = useBuildContext();
+  const {
+    scrapeListings, scrapeLoading, scrapeError, refreshScrape,
+    inspirationVideos, inspirationLoading, inspirationError,
+  } = useBuildContext();
   const [storeFilter, setStoreFilter] = useState('all');
   const [sortBy, setSortBy] = useState('price-asc');
   const carouselRef = useRef(null);
@@ -60,7 +62,7 @@ export default function EcommerceInspirationView() {
 
       <section className="mb-10">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Related Inspiration</h2>
+          <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Related Tutorials &amp; Inspiration</h2>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => scrollCarousel(-1)}>Prev</Button>
             <Button variant="ghost" size="sm" onClick={() => scrollCarousel(1)}>Next</Button>
@@ -72,27 +74,42 @@ export default function EcommerceInspirationView() {
           className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory"
           style={{ scrollbarWidth: 'thin' }}
         >
-          {INSPIRATION_VIDEOS.map((video) => (
-            <div
+          {inspirationLoading && (
+            <div className="w-full py-4">
+              <SkeletonCard rows={3} tint="accent" />
+            </div>
+          )}
+
+          {!inspirationLoading && inspirationError && (
+            <Card className="p-4 w-64 shrink-0">
+              <p className="text-sm text-slate-400">Failed to load related tutorials.</p>
+            </Card>
+          )}
+
+          {!inspirationLoading && !inspirationError && (inspirationVideos?.length === 0) && (
+            <p className="text-sm text-slate-500 py-4 pl-1">No tutorials found for this build yet.</p>
+          )}
+
+          {!inspirationLoading && !inspirationError && inspirationVideos?.map((video) => (
+            <a
               key={video.id}
+              href={video.url}
+              target="_blank"
+              rel="noopener noreferrer"
               className="snap-start shrink-0 w-64 oc-card overflow-hidden cursor-pointer hover:border-accent/30 transition-colors"
             >
-              <div className={`h-36 bg-gradient-to-br ${video.gradient} flex items-center justify-center relative`}>
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center border-2"
-                  style={{ borderColor: video.accent, backgroundColor: 'rgba(15,15,15,0.6)' }}
-                >
-                  <span className="text-xs font-bold uppercase tracking-wider" style={{ color: video.accent }}>Play</span>
-                </div>
-                <span className="absolute bottom-2 right-2 text-[10px] bg-surface-base/80 px-1.5 py-0.5 rounded text-slate-300 font-mono">
-                  {video.duration}
-                </span>
+              <div className="aspect-video overflow-hidden">
+                <img
+                  src={video.thumbnailUrl}
+                  alt={video.title}
+                  className="w-full h-full object-cover"
+                />
               </div>
               <div className="p-3">
                 <p className="text-sm font-medium text-slate-200 line-clamp-2">{video.title}</p>
                 <p className="text-xs text-slate-500 mt-1">{video.channel}</p>
               </div>
-            </div>
+            </a>
           ))}
         </div>
       </section>
