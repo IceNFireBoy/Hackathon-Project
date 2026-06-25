@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ExtensionDashboard from './ExtensionDashboard';
 import FileUploadDashboard from './FileUploadDashboard';
+import OnlineStoreDashboard from './OnlineStoreDashboard';
 
 export default function App() {
   // Check if we are running inside the actual Chrome Extension popup
@@ -27,11 +28,21 @@ export default function App() {
           >
             🧩 Extension Popup View
           </button>
+          <button 
+            onClick={() => setCurrentView('online')}
+            className={`px-4 py-2 rounded text-xs font-bold transition-colors ${currentView === 'online' ? 'bg-emerald-500 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'}`}
+          >
+            🛒 Online Store View
+          </button>
         </div>
 
         {/* Render the selected interface */}
         <div className="flex-1 flex justify-center items-start pt-8 overflow-y-auto">
-          {currentView === 'website' ? <FileUploadDashboard /> : (
+          {currentView === 'website' ? (
+            <FileUploadDashboard />
+          ) : currentView === 'online' ? (
+            <OnlineStoreDashboard />
+          ) : (
             // We wrap the extension in a mock popup window so you can see how it looks while coding!
             <div className="shadow-2xl shadow-blue-900/20 rounded-lg overflow-hidden border border-slate-700">
                <ExtensionDashboard />

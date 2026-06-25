@@ -88,22 +88,39 @@ function ExtensionDashboard() {
     setComponents(newComps);
   };
 
+  const buildOnlineQuery = () => {
+    const names = readyItems.map(item => item.name.trim()).filter(Boolean);
+    if (names.length > 0) {
+      return names;
+    }
+    return [searchQuery || 'electronics components shop'];
+  };
+
   const triggerMapRender = (overrideMode) => {
     const activeMode = overrideMode || sortMode;
     const iframe = document.getElementById('map-sandbox');
     
     if (!iframe || !iframe.contentWindow) return;
 
-    setScanStatus(mapIsVisible ? "Recalculating Route..." : "Acquiring GPS Location...");
-    
+    setScanStatus(activeMode === 'online' ? "Loading online options..." : mapIsVisible ? "Recalculating Route..." : "Acquiring GPS Location...");
+    iframe.classList.remove('hidden');
+    setMapIsVisible(true);
+
+    if (activeMode === 'online') {
+      const onlineQuery = buildOnlineQuery();
+      iframe.contentWindow.postMessage({
+        action: 'RENDER_MAP',
+        userLocation: { lat: 14.6507, lng: 121.1029 },
+        sortMode: activeMode,
+        optimizedQuery: onlineQuery
+      }, '*');
+      return;
+    }
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const userLocation = { lat: position.coords.latitude, lng: position.coords.longitude };
         setScanStatus("Mapping Suppliers...");
-        iframe.classList.remove('hidden');
-        setMapIsVisible(true);
-        
-        // NEW: Pass the AI's optimized query down to the sandbox
         iframe.contentWindow.postMessage({
           action: 'RENDER_MAP',
           userLocation: userLocation,
@@ -114,9 +131,6 @@ function ExtensionDashboard() {
       (error) => {
         const fallbackLocation = { lat: 14.6507, lng: 121.1029 }; 
         setScanStatus("Using Regional Base Location...");
-        iframe.classList.remove('hidden');
-        setMapIsVisible(true);
-        
         iframe.contentWindow.postMessage({
           action: 'RENDER_MAP',
           userLocation: fallbackLocation,
@@ -212,7 +226,7 @@ function ExtensionDashboard() {
       {!isAnalyzing && components.length > 0 && (
         <div className="p-4 pt-2 border-t border-slate-800 shrink-0 bg-slate-950 z-10 flex flex-col space-y-3">
           
-          <iframe id="map-sandbox" src="sandbox.html" width="100%" height="300" allow="geolocation" className="hidden border border-slate-600 rounded-lg overflow-hidden mt-2"></iframe>
+          <iframe id="map-sandbox" src="sandbox.html" width="100%" height="300" sandbox="allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation allow-modals allow-same-origin" allow="geolocation" className="hidden border border-slate-600 rounded-lg overflow-hidden mt-2"></iframe>
 
           {mapIsVisible ? (
             <div className="flex flex-col space-y-2">
@@ -228,6 +242,12 @@ function ExtensionDashboard() {
                   className={`flex-1 py-2 text-xs font-bold rounded-md transition-colors ${sortMode === 'distance' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
                 >
                   📍 Closest Dist.
+                </button>
+                <button 
+                  onClick={() => { setSortMode('online'); triggerMapRender('online'); }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-md transition-colors ${sortMode === 'online' ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                >
+                  🛒 Online Stores
                 </button>
               </div>
             </div>

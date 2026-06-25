@@ -50,6 +50,81 @@
             line-height: 1.4;
         }
 
+        #online-results {
+            display: none;
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            right: 16px;
+            bottom: 16px;
+            padding: 16px;
+            background-color: rgba(2, 6, 23, 0.96);
+            border: 1px solid #10b981;
+            border-radius: 18px;
+            overflow-y: auto;
+            z-index: 15;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);
+        }
+
+        .online-card {
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 12px;
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .online-card h3 {
+            margin: 0 0 6px;
+            font-size: 14px;
+            color: #34d399;
+        }
+
+        .online-card p {
+            margin: 0 4px 8px;
+            color: #cbd5e1;
+            font-size: 12px;
+        }
+
+        .online-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            background: rgba(16, 185, 129, 0.12);
+            color: #a7f3d0;
+            margin-right: 6px;
+        }
+
+        .product-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .product-list li {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 12px;
+        }
+
+        .product-list li:last-child {
+            border-bottom: none;
+        }
+
+        .product-name {
+            color: #e2e8f0;
+            max-width: 220px;
+        }
+
+        .product-meta {
+            color: #94a3b8;
+            text-align: right;
+            min-width: 110px;
+        }
+
         .text-emerald {
             color: #34d399;
             font-weight: bold;
@@ -86,6 +161,7 @@
     <div id="loading">Waiting for data...</div>
     <div id="map" style="display: none;"></div>
     <div id="route-info"></div>
+    <div id="online-results"></div>
 
     <script>
         function getLinearDistance(p1, p2) {
@@ -102,6 +178,8 @@
             window.addEventListener('message', async function (event) {
                 if (event.data && event.data.action === 'RENDER_MAP') {
                     document.getElementById('loading').style.display = 'none';
+                    document.getElementById('online-results').style.display = 'none';
+                    document.getElementById('route-info').style.display = 'none';
                     document.getElementById('map').style.display = 'block';
 
                     const { Map } = await google.maps.importLibrary("maps");
@@ -153,6 +231,56 @@
                         });
                     }
 
+                    async function renderOnlineOptions(query) {
+                        const onlineResults = document.getElementById('online-results');
+                        document.getElementById('map').style.display = 'none';
+                        document.getElementById('route-info').style.display = 'none';
+                        onlineResults.style.display = 'block';
+
+                        const itemNames = Array.isArray(query)
+                            ? query.filter(Boolean)
+                            : query
+                                .replace(/^buy\s+/i, '')
+                                .replace(/\s+online$/i, '')
+                                .split(/\s*,\s*/)
+                                .filter(Boolean);
+
+                        const shortQuery = itemNames.length > 0 ? itemNames.join(', ') : 'electronics components';
+
+                        const shopeeSearchUrl = (item) => `https://shopee.ph/search?keyword=${encodeURIComponent(item)}&page=0&sortBy=sales`;
+                        const lazadaSearchUrl = (item) => `https://www.lazada.com.ph/catalog/?q=${encodeURIComponent(item)}&page=1&sort=popularity`;
+
+                        const marketDefinitions = [
+                            { name: 'Shopee', badge: 'Shopee', link: shopeeSearchUrl },
+                            { name: 'Lazada', badge: 'Lazada', link: lazadaSearchUrl }
+                        ];
+
+                        onlineResults.innerHTML = `<div class="online-card"><h3>Online store options for “${shortQuery}”</h3><p>Generated from the ready cart components and surfaced as direct marketplace search links.</p></div>`;
+
+                        for (const market of marketDefinitions) {
+                            const products = itemNames.map((name) => ({
+                                title: name,
+                                searchUrl: market.link(name)
+                            }));
+
+                            const card = document.createElement('div');
+                            card.className = 'online-card';
+                            card.innerHTML = `
+                                <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
+                                    <div><span class="online-badge">${market.badge}</span><strong>${market.name}</strong></div>
+                                </div>
+                                <ul class="product-list">
+                                    ${products.map(product => `
+                                        <li>
+                                            <span class="product-name"><a href="${product.searchUrl}" target="_blank" rel="noopener noreferrer" onclick="openMarketplaceSearch('${product.searchUrl}', '${market.name}'); return false;" style="color:#e2e8f0; text-decoration:none;">${product.title}</a></span>
+                                        </li>
+                                    `).join('')}
+                                </ul>
+                            `;
+                            onlineResults.appendChild(card);
+                        }
+                    }
+
                     // NEW: Combine the AI context string with the local Philippine anchors
                     const request = {
                         textQuery: `${aiQuery} shop Deeco Alexan e-Gizmo Makerlab`,
@@ -163,27 +291,32 @@
                     try {
                         const { places } = await Place.searchByText(request);
 
-                        if (places && places.length > 0) {
+                    if (sortMode === 'online') {
+                        await renderOnlineOptions(aiQuery);
+                        return;
+                    }
 
-                            const blockedWords = /vape|appliance|laundry|grocery|restaurant|cafe/i;
-                            let validPlaces = places.filter(place => !blockedWords.test(place.displayName));
+                    if (places && places.length > 0) {
 
-                            if (validPlaces.length === 0) validPlaces = places;
+                        const blockedWords = /vape|appliance|laundry|grocery|restaurant|cafe/i;
+                        let validPlaces = places.filter(place => !blockedWords.test(place.displayName));
 
-                            if (sortMode === 'distance') {
-                                validPlaces.sort((a, b) => getLinearDistance(userLoc, a.location) - getLinearDistance(userLoc, b.location));
-                            }
+                        if (validPlaces.length === 0) validPlaces = places;
 
-                            validPlaces.forEach((place, index) => {
-                                const marker = new AdvancedMarkerElement({ map: map, position: place.location, title: place.displayName });
-                                marker.addListener('gmp-click', () => calculateAndDisplayRoute(place, index === 0));
-                            });
-
-                            calculateAndDisplayRoute(validPlaces[0], true);
-
-                        } else {
-                            console.log("Omni-Cart: No matches found.");
+                        if (sortMode === 'distance') {
+                            validPlaces.sort((a, b) => getLinearDistance(userLoc, a.location) - getLinearDistance(userLoc, b.location));
                         }
+
+                        validPlaces.forEach((place, index) => {
+                            const marker = new AdvancedMarkerElement({ map: map, position: place.location, title: place.displayName });
+                            marker.addListener('gmp-click', () => calculateAndDisplayRoute(place, index === 0));
+                        });
+
+                        calculateAndDisplayRoute(validPlaces[0], true);
+
+                    } else {
+                        console.log("Omni-Cart: No matches found.");
+                    }
                     } catch (error) {
                         console.error("Omni-Cart API error:", error);
                     }

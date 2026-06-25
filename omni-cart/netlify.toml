@@ -4,3 +4,4 @@
     Access-Control-Allow-Origin = "*"
     Access-Control-Allow-Headers = "Content-Type"
     Access-Control-Allow-Methods = "POST, OPTIONS"
+    Content-Security-Policy = "script-src 'self' 'unsafe-eval' 'unsafe-inline' 'wasm-unsafe-eval'; object-src 'self'"
