@@ -1,19 +1,44 @@
-import { useState, useRef } from 'react';
+import { useMemo, useState, useRef } from 'react';
 import { PageHeader } from '../components/dashboard';
-import { Card, Badge, Button } from '../components/ui';
-import { INSPIRATION_VIDEOS, PRICE_LISTINGS } from '../mocks';
+import { Card, Badge, Button, SkeletonCard } from '../components/ui';
+import { useBuildContext } from '../context/BuildContext';
+import { INSPIRATION_VIDEOS } from '../mocks';
 
 const activeFilterClass = 'bg-accent-muted text-accent-bright border-accent/30';
 const inactiveFilterClass = 'text-slate-400 border-surface-card hover:border-accent/30 hover:text-accent';
 
+const SORT_OPTIONS = [
+  { id: 'price-asc', label: 'Lowest Price' },
+  { id: 'sales-desc', label: 'Highest Sales' },
+  { id: 'reviews-desc', label: 'Best Reviews' },
+];
+
+function sortListings(listings, sortBy) {
+  const sorted = [...listings];
+  switch (sortBy) {
+    case 'sales-desc':
+      return sorted.sort((a, b) => (b.salesCount || 0) - (a.salesCount || 0));
+    case 'reviews-desc':
+      return sorted.sort((a, b) => parseFloat(b.reviewScore || 0) - parseFloat(a.reviewScore || 0));
+    case 'price-asc':
+    default:
+      return sorted.sort((a, b) => a.pricePHP - b.pricePHP);
+  }
+}
+
 export default function EcommerceInspirationView() {
+  const { scrapeListings, scrapeLoading, scrapeError, refreshScrape } = useBuildContext();
   const [storeFilter, setStoreFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('price-asc');
   const carouselRef = useRef(null);
 
-  const filteredListings =
-    storeFilter === 'all'
-      ? PRICE_LISTINGS
-      : PRICE_LISTINGS.filter((p) => p.store.toLowerCase() === storeFilter);
+  const filteredListings = useMemo(() => {
+    let items = scrapeListings;
+    if (storeFilter !== 'all') {
+      items = items.filter((p) => p.storeId === storeFilter);
+    }
+    return sortListings(items, sortBy);
+  }, [scrapeListings, storeFilter, sortBy]);
 
   const scrollCarousel = (direction) => {
     if (!carouselRef.current) return;
@@ -29,8 +54,8 @@ export default function EcommerceInspirationView() {
   return (
     <div className="max-w-5xl mx-auto animate-fade-in-up">
       <PageHeader
-        title="E-Commerce & Inspiration"
-        subtitle="Related project videos and regional pricing from Shopee & Lazada"
+        title="E-Commerce Aggregator"
+        subtitle="Live scraped pricing from Shopee & Lazada for your active build"
       />
 
       <section className="mb-10">
@@ -74,39 +99,87 @@ export default function EcommerceInspirationView() {
 
       <section>
         <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
-          <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">E-Commerce Aggregator</h2>
-          <div className="flex gap-2">
-            {['all', 'shopee', 'lazada'].map((store) => (
-              <button
-                key={store}
-                onClick={() => setStoreFilter(store)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors border
-                  ${storeFilter === store ? activeFilterClass : inactiveFilterClass}`}
-              >
-                {store === 'all' ? 'All Stores' : store.charAt(0).toUpperCase() + store.slice(1)}
-              </button>
-            ))}
+          <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Live Listings</h2>
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex gap-2">
+              {[
+                { id: 'all', label: 'All' },
+                { id: 'shopee', label: 'Shopee' },
+                { id: 'lazada', label: 'Lazada' },
+              ].map((store) => (
+                <button
+                  key={store.id}
+                  type="button"
+                  onClick={() => setStoreFilter(store.id)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-colors border
+                    ${storeFilter === store.id ? activeFilterClass : inactiveFilterClass}`}
+                >
+                  {store.label}
+                </button>
+              ))}
+            </div>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="bg-surface-raised border border-surface-card rounded-lg text-xs text-slate-300 px-3 py-1.5 outline-none focus:border-accent/40"
+            >
+              {SORT_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>{opt.label}</option>
+              ))}
+            </select>
           </div>
         </div>
+
+        {scrapeLoading && (
+          <Card className="p-5 mb-4">
+            <SkeletonCard rows={4} tint="accent" />
+            <p className="text-xs text-accent-bright text-center mt-3 animate-pulse">Scanning marketplace listings…</p>
+          </Card>
+        )}
+
+        {scrapeError && !scrapeLoading && (
+          <Card className="p-5 mb-4 flex items-center justify-between gap-3">
+            <p className="text-sm text-slate-400">{scrapeError}</p>
+            <Button size="sm" variant="ghost" onClick={refreshScrape}>Retry</Button>
+          </Card>
+        )}
+
+        {!scrapeLoading && filteredListings.length === 0 && (
+          <Card className="p-8 text-center">
+            <p className="text-sm text-slate-400">No listings yet. Import or scan components to populate this grid.</p>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredListings.map((listing) => (
             <Card key={listing.id} className="p-4 hover:border-accent/20 transition-colors">
               <div className="flex items-start justify-between gap-2 mb-3">
-                <Badge variant={listing.store === 'Shopee' ? 'warning' : 'neutral'}>
-                  {listing.store}
-                </Badge>
+                <a
+                  href={listing.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex"
+                >
+                  <Badge variant={listing.store === 'Shopee' ? 'warning' : 'neutral'}>
+                    {listing.store}
+                  </Badge>
+                </a>
                 <Badge variant={stockVariant(listing.stock)}>{listing.stock}</Badge>
               </div>
               <p className="text-sm font-medium text-slate-200 mb-2">{listing.partName}</p>
+              <div className="flex items-center gap-3 text-[10px] text-slate-500 mb-3">
+                <span>{listing.salesCount?.toLocaleString()} sold</span>
+                <span>★ {listing.reviewScore}</span>
+              </div>
               <div className="flex items-end justify-between">
                 <p className="text-xl font-black text-accent">₱{listing.pricePHP}</p>
                 <a
                   href={listing.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-xs text-accent-bright hover:text-accent underline"
-                  onClick={(e) => e.preventDefault()}
                 >
-                  View
+                  Verify listing
                 </a>
               </div>
             </Card>

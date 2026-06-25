@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { PageHeader } from '../components/dashboard';
 import { Card, CardRow, Button, ConfidencePill, Badge, SkeletonCard } from '../components/ui';
 import { useAnalyzeParts } from '../hooks/useAnalyzeParts';
@@ -6,12 +6,19 @@ import { useBuildContext } from '../context/BuildContext';
 
 export default function IngestionView({ onNavigate }) {
   const { analyze, isAnalyzing, error } = useAnalyzeParts();
-  const { mergeComponentsFromIngestion } = useBuildContext();
+  const { importCart, importedCart, saveToArchive } = useBuildContext();
   const [isDragging, setIsDragging] = useState(false);
   const [statusText, setStatusText] = useState('Click or drag a schematic image/PDF here');
   const [extractedCart, setExtractedCart] = useState(null);
-  const [savedLocally, setSavedLocally] = useState(false);
+  const [savedNotice, setSavedNotice] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!importedCart) return;
+    setExtractedCart(importedCart);
+    setSavedNotice(null);
+    setStatusText('Imported extension scan. Click or drag another schematic to scan');
+  }, [importedCart]);
 
   const handleDragOver = (e) => {
     e.preventDefault();
@@ -29,7 +36,7 @@ export default function IngestionView({ onNavigate }) {
     const file = e.dataTransfer.files[0];
     if (file) {
       setExtractedCart(null);
-      setSavedLocally(false);
+      setSavedNotice(null);
       processFile(file);
     }
   };
@@ -42,7 +49,7 @@ export default function IngestionView({ onNavigate }) {
     const file = e.target.files[0];
     if (!file) return;
     setExtractedCart(null);
-    setSavedLocally(false);
+    setSavedNotice(null);
     processFile(file);
     e.target.value = null;
   };
@@ -62,6 +69,7 @@ export default function IngestionView({ onNavigate }) {
     try {
       const result = await analyze(payload);
       setExtractedCart(result);
+      importCart(result, 'ingestion');
       setStatusText('Click or drag another schematic to scan');
     } catch (err) {
       setStatusText(`Analysis Failed: ${err.message}`);
@@ -94,13 +102,16 @@ export default function IngestionView({ onNavigate }) {
 
   const handleSendToBuilder = () => {
     if (extractedCart?.components) {
-      mergeComponentsFromIngestion(extractedCart.components);
+      importCart(extractedCart, 'ingestion');
       onNavigate?.('builder');
     }
   };
 
   const handleSaveBuild = () => {
-    setSavedLocally(true);
+    if (!extractedCart?.components?.length) return;
+    importCart(extractedCart, 'ingestion');
+    const entry = saveToArchive();
+    setSavedNotice(`Saved "${entry.title}" to archive.`);
   };
 
   return (
@@ -194,8 +205,11 @@ export default function IngestionView({ onNavigate }) {
           <div className="flex flex-wrap gap-3">
             <Button onClick={handleSendToBuilder}>Send to Builder</Button>
             <Button variant="ghost" onClick={handleSaveBuild}>
-              {savedLocally ? 'Saved to Archive (local)' : 'Save Build'}
+              Save to Archive
             </Button>
+            {savedNotice && (
+              <span className="text-xs text-accent-bright self-center">{savedNotice}</span>
+            )}
           </div>
         </div>
       )}

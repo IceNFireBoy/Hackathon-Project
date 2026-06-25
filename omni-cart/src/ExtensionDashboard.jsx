@@ -7,7 +7,11 @@ import {
   MapPanel,
   DevSimulateButton,
 } from './components/extension';
+import { Button } from './components/ui';
 import { useAnalyzeParts } from './hooks/useAnalyzeParts';
+import { getImportUrl } from './utils/importBridge';
+
+const WEB_DASHBOARD_URL = import.meta.env.VITE_WEB_DASHBOARD_URL || 'http://localhost:8888/';
 
 function ExtensionDashboard() {
   const { analyze, isAnalyzing } = useAnalyzeParts();
@@ -31,6 +35,11 @@ function ExtensionDashboard() {
     setScanStatus('Scanning Context...');
 
     const messageListener = async (message) => {
+      if (message.error) {
+        setScanStatus(`Scan Error: ${message.error}`);
+        return;
+      }
+
       if (message.sourceType && message.data) {
         setScanStatus('Analyzing with AI...');
         try {
@@ -45,8 +54,14 @@ function ExtensionDashboard() {
 
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
       chrome.runtime.onMessage.addListener(messageListener);
-      chrome.runtime.sendMessage({ action: 'START_OMNI_SCAN' }, () => {
-        if (chrome.runtime.lastError) setScanStatus('Scan failed to start.');
+      chrome.runtime.sendMessage({ action: 'START_OMNI_SCAN' }, (response) => {
+        if (chrome.runtime.lastError) {
+          setScanStatus('Scan failed to start.');
+          return;
+        }
+        if (response?.error) {
+          setScanStatus(`Scan Error: ${response.error}`);
+        }
       });
     } else {
       setScanStatus('Running in local dev mode.');
@@ -75,6 +90,21 @@ function ExtensionDashboard() {
     });
   };
 
+  const postToMap = (iframe, activeMode, userLocation) => {
+    setScanStatus('Mapping Suppliers...');
+    setMapIsVisible(true);
+
+    iframe.contentWindow.postMessage(
+      {
+        action: 'RENDER_MAP',
+        userLocation,
+        sortMode: activeMode,
+        optimizedQuery: searchQuery,
+      },
+      '*'
+    );
+  };
+
   const triggerMapRender = (overrideMode) => {
     const activeMode = overrideMode || sortMode;
     const iframe = document.getElementById('map-sandbox');
@@ -83,26 +113,17 @@ function ExtensionDashboard() {
 
     setScanStatus(mapIsVisible ? 'Recalculating Route...' : 'Acquiring GPS Location...');
 
-    const postToMap = (userLocation) => {
-      setScanStatus('Mapping Suppliers...');
-      iframe.classList.remove('hidden');
-      setMapIsVisible(true);
-      iframe.contentWindow.postMessage(
-        {
-          action: 'RENDER_MAP',
-          userLocation,
-          sortMode: activeMode,
-          optimizedQuery: searchQuery,
-        },
-        '*'
-      );
-    };
+    const fallbackLocation = { lat: 14.6507, lng: 121.1029 };
 
     navigator.geolocation.getCurrentPosition(
-      (position) => postToMap({ lat: position.coords.latitude, lng: position.coords.longitude }),
+      (position) =>
+        postToMap(iframe, activeMode, {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        }),
       () => {
         setScanStatus('Using Regional Base Location...');
-        postToMap({ lat: 14.6507, lng: 121.1029 });
+        postToMap(iframe, activeMode, fallbackLocation);
       },
       { enableHighAccuracy: true, timeout: 7000 }
     );
@@ -113,11 +134,32 @@ function ExtensionDashboard() {
     triggerMapRender(mode);
   };
 
+  const handleOpenWebDashboard = () => {
+    const cartForImport = {
+      source: 'extension',
+      components: components
+        .filter((component) => component.checked !== false)
+        .map(({ checked, ...component }) => component),
+      optimized_maps_query: searchQuery || 'electronic components shop',
+    };
+    const url = getImportUrl(WEB_DASHBOARD_URL, cartForImport);
+
+    if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+      chrome.tabs.create({ url });
+      return;
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const readyItems = components.filter((c) => c.confidence_score >= 0.8);
   const unsureItems = components.filter((c) => c.confidence_score < 0.8);
   const showSkeleton =
-    isAnalyzing || (components.length === 0 && scanStatus === 'Scanning Context...');
-  const showDevButton = scanStatus === 'Running in local dev mode.' && components.length === 0 && !isAnalyzing;
+    isAnalyzing ||
+    (components.length === 0 &&
+      (scanStatus === 'Scanning Context...' || scanStatus.startsWith('Analyzing')));
+  const showDevButton =
+    scanStatus === 'Running in local dev mode.' && components.length === 0 && !isAnalyzing;
 
   return (
     <div className="w-[380px] h-[550px] flex flex-col bg-surface-base text-slate-200 font-sans antialiased overflow-hidden">
@@ -147,6 +189,9 @@ function ExtensionDashboard() {
               onToggleCheck={toggleCheck}
               onNameChange={handleNameChange}
             />
+            <Button variant="outline" className="w-full" onClick={handleOpenWebDashboard}>
+              Open in Web Dashboard
+            </Button>
           </div>
         )}
       </main>

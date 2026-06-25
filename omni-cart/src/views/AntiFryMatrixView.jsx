@@ -1,11 +1,26 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { PageHeader } from '../components/dashboard';
 import { Card, CardRow, Button, Badge, Tooltip } from '../components/ui';
-import { BUILD_CATEGORIES, VOLTAGE_CONFLICT } from '../mocks';
 import { useBuildContext } from '../context/BuildContext';
+import { getSlotCategories } from '../utils/voltageAnalysis';
 
-function CompatibilityBanner({ conflictResolved, ingestedFromScan }) {
-  if (conflictResolved) {
+function StoreLink({ store, url }) {
+  if (!store || !url) return null;
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-[10px] font-bold uppercase tracking-wider text-accent-bright hover:text-accent underline"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {store}
+    </a>
+  );
+}
+
+function CompatibilityBanner({ conflict, conflictResolved, ingestedFromScan }) {
+  if (conflictResolved || !conflict) {
     return (
       <div className="sticky top-0 z-20 mb-6 p-4 rounded-card border border-accent/40 bg-accent-muted flex items-center gap-3">
         <div>
@@ -21,15 +36,15 @@ function CompatibilityBanner({ conflictResolved, ingestedFromScan }) {
     <div className="sticky top-0 z-20 mb-6 p-4 rounded-card border border-accent/30 bg-accent-muted flex items-start gap-3">
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-accent">Compatibility Issue</p>
-        <p className="text-xs text-slate-300 mt-1">{VOLTAGE_CONFLICT.message}</p>
+        <p className="text-xs text-slate-300 mt-1">{conflict.message}</p>
       </div>
-      <Badge variant="warning">5V vs 3.3V</Badge>
+      <Badge variant="warning">Voltage Mismatch</Badge>
     </div>
   );
 }
 
-function ConflictResolutionPanel({ onResolve }) {
-  const { alternative, physicsExplanation } = VOLTAGE_CONFLICT;
+function ConflictResolutionPanel({ conflict, onResolve }) {
+  const { alternative, physicsExplanation } = conflict;
 
   return (
     <Card variant="bright" className="mb-6">
@@ -37,7 +52,7 @@ function ConflictResolutionPanel({ onResolve }) {
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-bold text-accent">Anti-Fry Resolution Required</h3>
           <Tooltip content={physicsExplanation}>
-            <button className="text-xs text-slate-400 underline hover:text-accent-bright">Why?</button>
+            <button type="button" className="text-xs text-slate-400 underline hover:text-accent-bright">Why?</button>
           </Tooltip>
         </div>
         <p className="text-xs text-slate-400 mt-2 leading-relaxed">{physicsExplanation}</p>
@@ -60,33 +75,56 @@ function ConflictResolutionPanel({ onResolve }) {
 }
 
 export default function AntiFryMatrixView() {
-  const { buildSlots, buildName, conflictResolved, ingestedFromScan, resolveConflict } = useBuildContext();
-  const [activeCategory, setActiveCategory] = useState('mcu');
+  const {
+    buildSlots,
+    buildName,
+    conflictResolved,
+    ingestedFromScan,
+    voltageConflict,
+    resolveConflict,
+    estimatedTotal,
+    scrapeLoading,
+  } = useBuildContext();
 
-  const subtotal = Object.values(buildSlots).reduce((sum, slot) => sum + (slot?.price || 0), 0);
+  const slotCategories = useMemo(() => getSlotCategories(buildSlots), [buildSlots]);
+  const [activeCategory, setActiveCategory] = useState(null);
+
+  const activeSlotId =
+    activeCategory ||
+    slotCategories[0]?.slotId ||
+    Object.keys(buildSlots)[0];
+
+  const hasConflict = Boolean(voltageConflict) && !conflictResolved;
 
   return (
     <div className="max-w-5xl mx-auto animate-fade-in-up">
       <PageHeader title="Anti-Fry Builder's Matrix" subtitle={buildName} />
 
-      <CompatibilityBanner conflictResolved={conflictResolved} ingestedFromScan={ingestedFromScan} />
+      <CompatibilityBanner
+        conflict={voltageConflict}
+        conflictResolved={conflictResolved}
+        ingestedFromScan={ingestedFromScan}
+      />
 
-      {!conflictResolved && <ConflictResolutionPanel onResolve={resolveConflict} />}
+      {hasConflict && (
+        <ConflictResolutionPanel conflict={voltageConflict} onResolve={resolveConflict} />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[200px_1fr] gap-4">
         <Card className="h-fit">
           <div className="p-2">
-            {BUILD_CATEGORIES.map((cat) => (
+            {slotCategories.map(({ slotId, label }) => (
               <button
-                key={cat.id}
-                onClick={() => setActiveCategory(cat.id)}
+                key={slotId}
+                type="button"
+                onClick={() => setActiveCategory(slotId)}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors mb-0.5
-                  ${activeCategory === cat.id
+                  ${activeSlotId === slotId
                     ? 'bg-accent-muted text-accent-bright border-l-2 border-accent'
                     : 'text-slate-400 hover:bg-surface-card/40 hover:text-accent border-l-2 border-transparent'
                   }`}
               >
-                <span className="truncate">{cat.label}</span>
+                <span className="truncate">{label}</span>
               </button>
             ))}
           </div>
@@ -95,30 +133,31 @@ export default function AntiFryMatrixView() {
         <Card>
           <div className="px-4 py-2 bg-surface-raised/40 border-b border-surface-card/60 grid grid-cols-[1fr_auto_auto_auto] gap-4 text-[10px] uppercase tracking-wider text-slate-500 font-bold">
             <span>Component</span>
-            <span className="hidden sm:inline">Specs</span>
+            <span className="hidden sm:inline">Vendor</span>
             <span>Voltage</span>
             <span className="text-right">Price</span>
           </div>
           <div className="oc-row-divider">
-            {BUILD_CATEGORIES.map((cat) => {
-              const slot = buildSlots[cat.id];
+            {slotCategories.map(({ slotId, label }) => {
+              const slot = buildSlots[slotId];
               if (!slot) return null;
-              const isAffected = !conflictResolved && VOLTAGE_CONFLICT.affectedSlots.includes(cat.id);
+              const isAffected =
+                hasConflict && voltageConflict.affectedSlots.includes(slotId);
 
               return (
                 <CardRow
-                  key={cat.id}
+                  key={slotId}
                   className={`grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center ${isAffected ? 'bg-accent-muted/40' : ''}`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-slate-200 truncate">{slot.name}</p>
-                      <p className="text-[10px] text-slate-500 uppercase">{cat.label}</p>
+                      <p className="text-[10px] text-slate-500 uppercase">{label}</p>
                     </div>
                     {isAffected && <Badge variant="warning">Mismatch</Badge>}
                   </div>
-                  <span className="hidden sm:inline text-xs text-slate-500 font-mono truncate max-w-[140px]">
-                    {slot.specs}
+                  <span className="hidden sm:inline">
+                    <StoreLink store={slot.store} url={slot.listingUrl} />
                   </span>
                   <span className={`text-xs font-mono ${isAffected ? 'text-accent' : 'text-slate-400'}`}>
                     {slot.voltage}
@@ -130,8 +169,11 @@ export default function AntiFryMatrixView() {
           </div>
 
           <div className="px-4 py-3 border-t border-surface-card/60 bg-surface-raised/30 flex justify-between items-center">
-            <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">Estimated Subtotal</span>
-            <span className="text-lg font-black text-accent">₱{subtotal.toLocaleString()}</span>
+            <span className="text-xs text-slate-500 uppercase tracking-wider font-bold">
+              Estimated Subtotal
+              {scrapeLoading && <span className="ml-2 text-accent animate-pulse">scanning…</span>}
+            </span>
+            <span className="text-lg font-black text-accent">₱{estimatedTotal.toLocaleString()}</span>
           </div>
         </Card>
       </div>
