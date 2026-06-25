@@ -7,7 +7,11 @@ import {
   MapPanel,
   DevSimulateButton,
 } from './components/extension';
+import { Button } from './components/ui';
 import { useAnalyzeParts } from './hooks/useAnalyzeParts';
+import { getImportUrl } from './utils/importBridge';
+
+const WEB_DASHBOARD_URL = import.meta.env.VITE_WEB_DASHBOARD_URL || 'http://localhost:8888/';
 
 function ExtensionDashboard() {
   const { analyze, isAnalyzing } = useAnalyzeParts();
@@ -113,6 +117,24 @@ function ExtensionDashboard() {
     triggerMapRender(mode);
   };
 
+  const handleOpenWebDashboard = () => {
+    const cartForImport = {
+      source: 'extension',
+      components: components
+        .filter((component) => component.checked !== false)
+        .map(({ checked, ...component }) => component),
+      optimized_maps_query: searchQuery || 'electronic components shop',
+    };
+    const url = getImportUrl(WEB_DASHBOARD_URL, cartForImport);
+
+    if (typeof chrome !== 'undefined' && chrome.tabs?.create) {
+      chrome.tabs.create({ url });
+      return;
+    }
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const readyItems = components.filter((c) => c.confidence_score >= 0.8);
   const unsureItems = components.filter((c) => c.confidence_score < 0.8);
   const showSkeleton =
@@ -147,6 +169,9 @@ function ExtensionDashboard() {
               onToggleCheck={toggleCheck}
               onNameChange={handleNameChange}
             />
+            <Button variant="outline" className="w-full" onClick={handleOpenWebDashboard}>
+              Open in Web Dashboard
+            </Button>
           </div>
         )}
       </main>

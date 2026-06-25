@@ -1,5 +1,10 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { INITIAL_BUILD, mapComponentToCategory } from '../mocks';
+import {
+  clearImportCartFromUrl,
+  normalizeImportCart,
+  readImportCartFromUrl,
+} from '../utils/importBridge';
 
 const BuildContext = createContext(null);
 
@@ -8,6 +13,7 @@ export function BuildProvider({ children }) {
   const [buildName, setBuildName] = useState(INITIAL_BUILD.name);
   const [conflictResolved, setConflictResolved] = useState(false);
   const [ingestedFromScan, setIngestedFromScan] = useState(false);
+  const [importedCart, setImportedCart] = useState(null);
 
   const mergeComponentsFromIngestion = useCallback((components) => {
     setBuildSlots((prev) => {
@@ -25,6 +31,19 @@ export function BuildProvider({ children }) {
       return next;
     });
     setIngestedFromScan(true);
+  }, []);
+
+  const importCart = useCallback((cart, source = 'ingestion') => {
+    const normalizedCart = normalizeImportCart(cart, source);
+    setImportedCart(normalizedCart);
+    if (normalizedCart.components.length > 0) {
+      mergeComponentsFromIngestion(normalizedCart.components);
+    }
+    return normalizedCart;
+  }, [mergeComponentsFromIngestion]);
+
+  const clearImportedCart = useCallback(() => {
+    setImportedCart(null);
   }, []);
 
   const resolveConflict = useCallback((alternative) => {
@@ -46,7 +65,16 @@ export function BuildProvider({ children }) {
     setBuildName(INITIAL_BUILD.name);
     setConflictResolved(false);
     setIngestedFromScan(false);
+    setImportedCart(null);
   }, []);
+
+  useEffect(() => {
+    const urlCart = readImportCartFromUrl();
+    if (!urlCart) return;
+
+    importCart(urlCart, 'url');
+    clearImportCartFromUrl();
+  }, [importCart]);
 
   return (
     <BuildContext.Provider
@@ -55,6 +83,9 @@ export function BuildProvider({ children }) {
         buildName,
         conflictResolved,
         ingestedFromScan,
+        importedCart,
+        importCart,
+        clearImportedCart,
         mergeComponentsFromIngestion,
         resolveConflict,
         resetBuild,
