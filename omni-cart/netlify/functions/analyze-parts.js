@@ -22,6 +22,8 @@ exports.handler = async function (event, context) {
     return { statusCode: 405, headers, body: "Method Not Allowed" };
   }
 
+
+  
   try {
     const payload = JSON.parse(event.body);
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY?.trim(); 
