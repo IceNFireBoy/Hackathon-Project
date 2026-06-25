@@ -1,72 +1,55 @@
-import React, { useEffect, useState } from 'react';
-
-const isLocal = true;
-const API_BASE_URL = isLocal 
-  ? 'http://localhost:8888/.netlify/functions' 
-  : 'https://[YOUR-FUTURE-NETLIFY-URL]/.netlify/functions';
+import { useEffect, useState } from 'react';
+import {
+  ExtensionHeader,
+  ScanSkeleton,
+  ReadyCartSection,
+  UnsureSection,
+  MapPanel,
+  DevSimulateButton,
+} from './components/extension';
+import { useAnalyzeParts } from './hooks/useAnalyzeParts';
 
 function ExtensionDashboard() {
-  const [scanStatus, setScanStatus] = useState("Initializing...");
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { analyze, isAnalyzing } = useAnalyzeParts();
+  const [scanStatus, setScanStatus] = useState('Initializing...');
   const [components, setComponents] = useState([]);
-  
-  const [sortMode, setSortMode] = useState('trusted'); 
+  const [sortMode, setSortMode] = useState('trusted');
   const [mapIsVisible, setMapIsVisible] = useState(false);
-  // NEW: State to hold the AI's optimized map query
-  const [searchQuery, setSearchQuery] = useState(""); 
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const formatResult = (result) => {
+    const formattedComponents = result.components.map((comp) => ({
+      ...comp,
+      checked: comp.confidence_score >= 0.8,
+    }));
+    setComponents(formattedComponents);
+    setSearchQuery(result.optimized_maps_query || 'electronic components shop');
+    setScanStatus('Verification Sandbox');
+  };
 
   useEffect(() => {
-    setScanStatus("Scanning Context...");
+    setScanStatus('Scanning Context...');
 
-    const messageListener = async (message, sender, sendResponse) => {
+    const messageListener = async (message) => {
       if (message.sourceType && message.data) {
-        setScanStatus("Analyzing with AI...");
-        setIsAnalyzing(true);
-        
+        setScanStatus('Analyzing with AI...');
         try {
-          const response = await fetch(`${API_BASE_URL}/analyze-parts`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(message)
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            try {
-              const errorData = JSON.parse(errorText);
-              throw new Error(errorData.error || `Server crashed with status ${response.status}`);
-            } catch (parseError) {
-              throw new Error(errorText.substring(0, 50) + "..."); 
-            }
-          }
-          
-          const result = await response.json();
-          
-          // NEW: Parse the updated JSON Object schema
-          const formattedComponents = result.components.map(comp => ({
-            ...comp,
-            checked: comp.confidence_score >= 0.8
-          }));
-          
-          setComponents(formattedComponents);
-          setSearchQuery(result.optimized_maps_query || "electronic components shop"); // Save the AI query
-          setScanStatus("Verification Sandbox");
+          const result = await analyze(message);
+          formatResult(result);
         } catch (error) {
-          console.error("Backend Error:", error);
+          console.error('Backend Error:', error);
           setScanStatus(`AI Error: ${error.message}`);
-        } finally {
-          setIsAnalyzing(false);
         }
       }
     };
 
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
       chrome.runtime.onMessage.addListener(messageListener);
-      chrome.runtime.sendMessage({ action: "START_OMNI_SCAN" }, () => {
-        if (chrome.runtime.lastError) setScanStatus("Scan failed to start.");
+      chrome.runtime.sendMessage({ action: 'START_OMNI_SCAN' }, () => {
+        if (chrome.runtime.lastError) setScanStatus('Scan failed to start.');
       });
     } else {
-      setScanStatus("Running in local dev mode.");
+      setScanStatus('Running in local dev mode.');
     }
 
     return () => {
@@ -74,18 +57,22 @@ function ExtensionDashboard() {
         chrome.runtime.onMessage.removeListener(messageListener);
       }
     };
-  }, []);
+  }, [analyze]);
 
   const toggleCheck = (index) => {
-    const newComps = [...components];
-    newComps[index] = { ...newComps[index], checked: !newComps[index].checked };
-    setComponents(newComps);
+    setComponents((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], checked: !next[index].checked };
+      return next;
+    });
   };
 
   const handleNameChange = (index, newName) => {
-    const newComps = [...components];
-    newComps[index] = { ...newComps[index], name: newName };
-    setComponents(newComps);
+    setComponents((prev) => {
+      const next = [...prev];
+      next[index] = { ...next[index], name: newName };
+      return next;
+    });
   };
 
   const buildOnlineQuery = () => {
@@ -99,7 +86,7 @@ function ExtensionDashboard() {
   const triggerMapRender = (overrideMode) => {
     const activeMode = overrideMode || sortMode;
     const iframe = document.getElementById('map-sandbox');
-    
+
     if (!iframe || !iframe.contentWindow) return;
 
     setScanStatus(activeMode === 'online' ? "Loading online options..." : mapIsVisible ? "Recalculating Route..." : "Acquiring GPS Location...");
@@ -137,31 +124,75 @@ function ExtensionDashboard() {
           sortMode: activeMode,
           optimizedQuery: searchQuery
         }, '*');
+    setScanStatus(mapIsVisible ? 'Recalculating Route...' : 'Acquiring GPS Location...');
+
+    const postToMap = (userLocation) => {
+      setScanStatus('Mapping Suppliers...');
+      iframe.classList.remove('hidden');
+      setMapIsVisible(true);
+      iframe.contentWindow.postMessage(
+        {
+          action: 'RENDER_MAP',
+          userLocation,
+          sortMode: activeMode,
+          optimizedQuery: searchQuery,
+        },
+        '*'
+      );
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => postToMap({ lat: position.coords.latitude, lng: position.coords.longitude }),
+      () => {
+        setScanStatus('Using Regional Base Location...');
+        postToMap({ lat: 14.6507, lng: 121.1029 });
       },
       { enableHighAccuracy: true, timeout: 7000 }
     );
   };
 
-  const readyItems = components.filter(c => c.confidence_score >= 0.8);
-  const unsureItems = components.filter(c => c.confidence_score < 0.8);
+  const handleSortChange = (mode) => {
+    setSortMode(mode);
+    triggerMapRender(mode);
+  };
+
+  const readyItems = components.filter((c) => c.confidence_score >= 0.8);
+  const unsureItems = components.filter((c) => c.confidence_score < 0.8);
+  const showSkeleton =
+    isAnalyzing || (components.length === 0 && scanStatus === 'Scanning Context...');
+  const showDevButton = scanStatus === 'Running in local dev mode.' && components.length === 0 && !isAnalyzing;
 
   return (
-    <div className="w-[380px] h-[550px] flex flex-col bg-slate-950 text-slate-200 font-sans antialiased selection:bg-emerald-500/30 overflow-hidden">
-      
-      <header className="text-center border-b border-slate-800 p-4 shrink-0 bg-slate-950 z-10 shadow-sm">
-        <h1 className="text-2xl font-black tracking-widest text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]">
-          OMNI-CART
-        </h1>
-        <p className="text-xs text-slate-400 animate-pulse mt-1">{scanStatus}</p>
-      </header>
+    <div className="w-[380px] h-[550px] flex flex-col bg-surface-base text-slate-200 font-sans antialiased overflow-hidden">
+      <ExtensionHeader scanStatus={scanStatus} isAnalyzing={isAnalyzing} />
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-6">
-        {(isAnalyzing || (components.length === 0 && scanStatus === "Scanning Context...")) && (
-          <div className="h-full flex flex-col justify-center items-center space-y-4 pt-10">
-            <svg className="animate-spin h-10 w-10 text-emerald-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-            <p className="text-sm text-slate-400 animate-pulse">{scanStatus}</p>
+      <main className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-3">
+        {showSkeleton && <ScanSkeleton scanStatus={scanStatus} />}
+
+        {showDevButton && (
+          <DevSimulateButton
+            onStart={() => setScanStatus('Analyzing with AI...')}
+            onResult={formatResult}
+            onEnd={() => {}}
+          />
+        )}
+
+        {!showSkeleton && components.length > 0 && (
+          <div className="space-y-4 pb-2">
+            <ReadyCartSection
+              items={readyItems}
+              components={components}
+              onToggleCheck={toggleCheck}
+            />
+            <UnsureSection
+              items={unsureItems}
+              components={components}
+              onToggleCheck={toggleCheck}
+              onNameChange={handleNameChange}
+            />
           </div>
         )}
+      </main>
 
         {/* Updated MOCK DEV BUTTON to match new JSON schema */}
         {scanStatus === "Running in local dev mode." && components.length === 0 && (
@@ -260,6 +291,13 @@ function ExtensionDashboard() {
             </button>
           )}
         </div>
+      {!showSkeleton && components.length > 0 && (
+        <MapPanel
+          mapIsVisible={mapIsVisible}
+          sortMode={sortMode}
+          onFindLocally={triggerMapRender}
+          onSortChange={handleSortChange}
+        />
       )}
     </div>
   );

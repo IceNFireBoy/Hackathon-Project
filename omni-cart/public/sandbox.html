@@ -11,7 +11,7 @@
             padding: 0;
             height: 100%;
             width: 100%;
-            background-color: #020617;
+            background-color: #0F0F0F;
             color: white;
             font-family: sans-serif;
             overflow: hidden;
@@ -25,11 +25,34 @@
 
         #loading {
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100%;
-            font-size: 12px;
-            color: #94a3b8;
+            gap: 12px;
+            padding: 16px;
+        }
+
+        .skeleton-bar {
+            height: 8px;
+            border-radius: 4px;
+            background: #2A2929;
+            animation: shimmer 1.5s ease-in-out infinite;
+        }
+
+        .skeleton-bar:nth-child(1) { width: 70%; animation-delay: 0s; }
+        .skeleton-bar:nth-child(2) { width: 50%; animation-delay: 0.2s; }
+        .skeleton-bar:nth-child(3) { width: 60%; animation-delay: 0.4s; }
+
+        @keyframes shimmer {
+            0%, 100% { opacity: 0.4; }
+            50% { opacity: 1; }
+        }
+
+        .loading-text {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
         }
 
         #route-info {
@@ -38,8 +61,8 @@
             bottom: 10px;
             left: 50%;
             transform: translateX(-50%);
-            background-color: rgba(2, 6, 23, 0.95);
-            border: 1px solid #10b981;
+            background-color: rgba(15, 15, 15, 0.95);
+            border: 1px solid #444342;
             padding: 10px 16px;
             border-radius: 8px;
             font-size: 12px;
@@ -127,12 +150,14 @@
 
         .text-emerald {
             color: #34d399;
+        .text-accent {
+            color: #FFB700;
             font-weight: bold;
             font-size: 14px;
         }
 
         .badge-trusted {
-            color: #fbbf24;
+            color: #FFB700;
             font-size: 10px;
             text-transform: uppercase;
             font-weight: 800;
@@ -141,7 +166,7 @@
         }
 
         .badge-closest {
-            color: #60a5fa;
+            color: #FFD000;
             font-size: 10px;
             text-transform: uppercase;
             font-weight: 800;
@@ -158,7 +183,12 @@
 </head>
 
 <body>
-    <div id="loading">Waiting for data...</div>
+    <div id="loading">
+        <div class="skeleton-bar"></div>
+        <div class="skeleton-bar"></div>
+        <div class="skeleton-bar"></div>
+        <span class="loading-text">Waiting for location data…</span>
+    </div>
     <div id="map" style="display: none;"></div>
     <div id="route-info"></div>
     <div id="online-results"></div>
@@ -221,7 +251,7 @@
                                 }
 
                                 infoDiv.innerHTML = `
-                                    <span class="text-emerald">${place.displayName}</span>
+                                    <span class="text-accent">${place.displayName}</span>
                                     ${badgeDisplay}
                                     <div class="rating-text">${ratingDisplay}</div>
                                     ${leg.distance.text} • ${leg.duration.text} drive

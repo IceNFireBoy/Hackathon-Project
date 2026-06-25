@@ -1,14 +1,11 @@
-import React, { useState } from 'react';
 import ExtensionDashboard from './ExtensionDashboard';
 import FileUploadDashboard from './FileUploadDashboard';
 import OnlineStoreDashboard from './OnlineStoreDashboard';
+import DashboardShell from './layouts/DashboardShell';
+import { BuildProvider } from './context/BuildContext';
 
 export default function App() {
-  // Check if we are running inside the actual Chrome Extension popup
   const isExtension = typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.id;
-  
-  // Default to extension view if in Chrome, otherwise default to the website view
-  const [currentView, setCurrentView] = useState(isExtension ? 'extension' : 'website');
 
   // If we are testing locally in a web browser (npm run dev), show the Dev Toggle Menu
   if (!isExtension) {
@@ -52,7 +49,13 @@ export default function App() {
       </div>
     );
   }
+  if (isExtension) {
+    return <ExtensionDashboard />;
+  }
 
-  // If this is running in production inside Chrome, ONLY render the extension. No dev menus.
-  return <ExtensionDashboard />;
+  return (
+    <BuildProvider>
+      <DashboardShell />
+    </BuildProvider>
+  );
 }
