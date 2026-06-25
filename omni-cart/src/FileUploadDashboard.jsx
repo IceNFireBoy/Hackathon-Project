@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 
-// Centralized API configuration (Match this to your live Netlify URL when deployed)
 const isLocal = true;
 const API_BASE_URL = isLocal 
   ? 'http://localhost:8888/.netlify/functions' 
@@ -9,10 +8,13 @@ const API_BASE_URL = isLocal
 export default function FileUploadDashboard() {
   const [isDragging, setIsDragging] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [statusText, setStatusText] = useState("Drag and drop a schematic image or PDF here");
+  const [statusText, setStatusText] = useState("Click or drag a schematic image/PDF here");
   const [extractedCart, setExtractedCart] = useState(null);
+  
+  // NEW: Reference to the hidden file input
+  const fileInputRef = useRef(null);
 
-  // --- Drag and Drop Handlers ---
+  // --- Click & Drag Handlers ---
   const handleDragOver = (e) => {
     e.preventDefault();
     setIsDragging(true);
@@ -30,8 +32,27 @@ export default function FileUploadDashboard() {
     const file = e.dataTransfer.files[0];
     if (!file) return;
 
-    setExtractedCart(null); // Reset previous results
+    setExtractedCart(null);
     processFile(file);
+  };
+
+  // NEW: Trigger the hidden input when the zone is clicked
+  const handleZoneClick = () => {
+    if (!isLoading && fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  // NEW: Handle the file once the user selects it from the OS dialog
+  const handleFileInput = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    setExtractedCart(null);
+    processFile(file);
+    
+    // Reset the input so the user can upload the same file again if needed
+    e.target.value = null; 
   };
 
   // --- File Processing Logic ---
@@ -44,11 +65,10 @@ export default function FileUploadDashboard() {
       const reader = new FileReader();
       reader.onload = async (event) => {
         const base64Full = event.target.result;
-        // Strip the metadata prefix to match the Netlify backend requirements
         const cleanBase64 = base64Full.replace(/^data:image\/(png|jpeg|jpg);base64,/, "");
         
         const payload = {
-          sourceType: "video_frames", // Reusing the vision schema from the extension
+          sourceType: "video_frames", 
           data: [cleanBase64]
         };
         
@@ -77,7 +97,6 @@ export default function FileUploadDashboard() {
 
   // --- PDF Architectural Scaffold ---
   const parsePDFText = async (file) => {
-    // TODO: Implement actual pdf.js extraction logic here in the future
     return new Promise((resolve) => {
       setTimeout(() => {
         resolve(`[SIMULATED PDF TEXT EXTRACTED FROM ${file.name}] The schematic requires an Arduino Nano, a 10k resistor, and a breadboard.`);
@@ -103,7 +122,7 @@ export default function FileUploadDashboard() {
 
       const result = await response.json();
       setExtractedCart(result);
-      setStatusText("Extraction Complete.");
+      setStatusText("Click or drag another schematic to scan");
 
     } catch (error) {
       console.error("Omni-Cart Backend Error:", error);
@@ -117,7 +136,6 @@ export default function FileUploadDashboard() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans p-8 flex flex-col items-center">
       
-      {/* Dashboard Header */}
       <header className="mb-12 text-center">
         <h1 className="text-4xl font-black tracking-widest text-emerald-400 drop-shadow-[0_0_12px_rgba(52,211,153,0.4)]">
           OMNI-CART <span className="text-slate-100 font-light tracking-normal">WEB</span>
@@ -125,8 +143,18 @@ export default function FileUploadDashboard() {
         <p className="text-sm text-slate-400 mt-2">Manual Schematic & Documentation Analyzer</p>
       </header>
 
-      {/* Interactive Drag & Drop Zone */}
+      {/* NEW: Hidden File Input */}
+      <input 
+        type="file" 
+        ref={fileInputRef} 
+        onChange={handleFileInput} 
+        className="hidden" 
+        accept=".png,.jpg,.jpeg,.pdf"
+      />
+
+      {/* Interactive Drop & Click Zone */}
       <div 
+        onClick={handleZoneClick} // NEW: Added click trigger
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -157,7 +185,6 @@ export default function FileUploadDashboard() {
         )}
       </div>
 
-      {/* JSON Payload Viewer */}
       {/* Human-Readable Payload Viewer */}
       {extractedCart && (
         <div className="w-full max-w-2xl mt-8 animate-fade-in-up pb-12">
@@ -168,29 +195,24 @@ export default function FileUploadDashboard() {
 
           <div className="bg-slate-900 rounded-xl border border-slate-700 overflow-hidden shadow-lg shadow-emerald-900/10">
             
-            {/* AI Search Query Context Header */}
             <div className="bg-slate-800/60 p-4 border-b border-slate-700/80">
               <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold mb-1">Optimized Map Query</p>
               <p className="text-sm text-emerald-300 font-mono">"{extractedCart.optimized_maps_query}"</p>
             </div>
 
-            {/* Component List */}
             <ul className="divide-y divide-slate-700/50">
               {extractedCart.components && extractedCart.components.map((item, index) => (
                 <li key={index} className="p-4 flex items-center justify-between hover:bg-slate-800/40 transition-colors group">
                   
                   <div className="flex items-center space-x-3">
-                    {/* Quantity Badge */}
                     <span className="text-emerald-400 font-black text-sm bg-slate-950 px-2 py-1 rounded border border-slate-800 shadow-inner">
                       {item.quantity}x
                     </span>
-                    {/* Component Name */}
                     <span className="text-sm font-medium text-slate-200 group-hover:text-white transition-colors">
                       {item.name}
                     </span>
                   </div>
 
-                  {/* Dynamic Confidence Badge */}
                   {item.confidence_score >= 0.8 ? (
                     <span className="text-[10px] uppercase tracking-wider font-bold text-emerald-500 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
                       High Match
