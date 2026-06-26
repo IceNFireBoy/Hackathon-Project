@@ -64,6 +64,7 @@ Web Dashboard (React + Vite + Tailwind)
 - API keys for:
   - [Google Gemini](https://aistudio.google.com/apikey) — component extraction AI
   - [YouTube Data API v3](https://console.cloud.google.com/apis/library/youtube.googleapis.com) — related tutorial cards
+  - [Google Maps Platform](https://console.cloud.google.com/) - Google Maps Integration
 
 ---
 
