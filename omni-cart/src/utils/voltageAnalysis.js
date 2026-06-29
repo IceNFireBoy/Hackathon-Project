@@ -108,18 +108,12 @@ export function detectVoltageConflict(buildSlots) {
     type: 'voltage_mismatch',
     message: `${sensor.name} (${sensor.voltage}) on ${mcu.name} bus (${mcu.voltage} logic)`,
     affectedSlots: [mcu.slotId, sensor.slotId],
+    higherV,
+    lowerV,
+    delta,
     reason,
     physicsExplanation:
       'I²C/SPI on 5V microcontrollers expose 5V logic levels. 3.3V-only sensors exceed absolute maximum input ratings when tied directly. Use a bidirectional logic level shifter between domains.',
-    alternative: {
-      partId: 'logic-shifter',
-      name: '4-Channel Logic Level Shifter',
-      price: 95,
-      voltage: '3.3V ↔ 5V',
-      specs: 'Bidirectional · 4 channels',
-      resolvesConflict: true,
-      insertSlot: sensor.slotId,
-    },
   };
 }
 
