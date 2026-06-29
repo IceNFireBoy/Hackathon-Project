@@ -71,7 +71,12 @@ export default function DashboardShell({ initialView = 'ingestion' }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
-          <span className="font-bold text-accent tracking-wider text-sm flex-1">OMNI-CART</span>
+          <div className="flex items-center space-x-2 flex-1">
+            <img src="/OMNI_CART_LOGO_TRANS.png" alt="Logo" className="w-6 h-6 object-contain" />
+            <h1 className="text-lg font-bold tracking-wide text-accent">
+              OMNI<span className="text-gray-100">-CART</span>
+            </h1>
+          </div>
           {hasUnsavedImport && (
             <Button size="sm" onClick={handleSaveToArchive}>Save</Button>
           )}

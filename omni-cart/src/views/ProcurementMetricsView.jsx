@@ -3,6 +3,7 @@ import { PageHeader, KpiCard } from '../components/dashboard';
 import { Card, Button, Badge, SkeletonCard } from '../components/ui';
 import { useBuildContext } from '../context/BuildContext';
 import { slotsToComponentList } from '../utils/voltageAnalysis';
+import { usePricingFromContext } from '../hooks/usePricingFromContext';
 
 function ScanningBanner({ loading, error, onRetry }) {
   if (!loading && !error) return null;
@@ -89,7 +90,7 @@ function ScraperResultsTable({ listings, loading }) {
       <div className="oc-row-divider max-h-72 overflow-y-auto">
         {listings.map((item) => (
           <div
-            key={item.id}
+            key={item.partName}
             className="px-4 py-3 grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center border-b border-surface-card/40 last:border-0 text-sm"
           >
             <span className="text-slate-200 truncate">{item.partName}</span>
@@ -251,6 +252,7 @@ function InvoiceModal({ lineItems, total, buildName, onClose }) {
 }
 
 export default function ProcurementMetricsView() {
+  const buildContext = useBuildContext();
   const {
     buildSlots,
     buildName,
@@ -261,7 +263,8 @@ export default function ProcurementMetricsView() {
     scrapeError,
     estimatedTotal,
     refreshScrape,
-  } = useBuildContext();
+  } = buildContext;
+  const { bestByPart } = usePricingFromContext(buildContext);
 
   const [showInvoice, setShowInvoice] = useState(false);
 
@@ -301,7 +304,7 @@ export default function ProcurementMetricsView() {
     <div className="max-w-5xl mx-auto animate-fade-in-up">
       <PageHeader title="Procurement & Metrics" subtitle={buildName}>
         <Button size="sm" onClick={() => setShowInvoice(true)} disabled={scrapeLoading || !components.length}>
-          Generate PDF Invoice
+          Generate PNG Invoice
         </Button>
       </PageHeader>
 
@@ -334,7 +337,7 @@ export default function ProcurementMetricsView() {
         </Card>
       </div>
 
-      <ScraperResultsTable listings={scrapeListings} loading={scrapeLoading} />
+      <ScraperResultsTable listings={Object.values(bestByPart)} loading={scrapeLoading} />
 
       {showInvoice && (
         <InvoiceModal

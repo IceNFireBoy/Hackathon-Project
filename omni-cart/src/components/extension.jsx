@@ -11,10 +11,13 @@ function statusColor(status) {
 
 export function ExtensionHeader({ scanStatus, isAnalyzing }) {
   return (
-    <header className="text-center border-b border-surface-card/60 p-3 shrink-0 bg-surface-base z-10">
-      <h1 className="text-xl font-black tracking-widest text-accent drop-shadow-[0_0_8px_rgba(255,183,0,0.35)]">
-        OMNI-CART
-      </h1>
+    <header className="border-b border-surface-card/60 p-3 shrink-0 bg-surface-base z-10">
+      <div className="flex items-center space-x-2">
+        <img src="/OMNI_CART_LOGO_TRANS.png" alt="Logo" className="w-6 h-6 object-contain" />
+        <h1 className="text-lg font-bold tracking-wide text-accent">
+          OMNI<span className="text-gray-100">-CART</span>
+        </h1>
+      </div>
       <div className="flex items-center justify-center gap-2 mt-1">
         {isAnalyzing && (
           <svg className="animate-spin h-3 w-3 text-accent-bright shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">

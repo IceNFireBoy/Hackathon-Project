@@ -53,11 +53,16 @@ export function SidebarNav({ activeView, onNavigate, mobileOpen, onMobileClose, 
         className={`fixed lg:sticky top-0 left-0 h-screen z-50 bg-surface-raised border-r border-surface-card flex flex-col w-64 transition-transform duration-200
           ${mobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
       >
-        <div className="p-4 border-b border-surface-card">
-          <div className="font-black tracking-widest text-accent">
-            OMNI<span className="text-accent-bright font-light">-CART</span>
+        <div className="border-b border-surface-card">
+          <div className="flex items-center space-x-3 px-4 py-6">
+            <img src="/OMNI_CART_LOGO_TRANS.png" alt="Omni-Cart Logo" className="w-8 h-8 object-contain" />
+            <div>
+              <h1 className="text-xl font-bold tracking-wider text-accent">
+                OMNI<span className="text-gray-100">-CART</span>
+              </h1>
+              <p className="text-xs text-gray-500 uppercase tracking-widest">Maker Procurement</p>
+            </div>
           </div>
-          <p className="text-[10px] text-slate-500 mt-1 uppercase tracking-wider">Maker Procurement</p>
         </div>
 
         <nav className="flex-1 py-3 overflow-y-auto">
