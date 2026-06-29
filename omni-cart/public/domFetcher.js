@@ -48,11 +48,13 @@
 
 // Execute the extraction sequence
 const articleText = extractArticleText();
-console.log(`Omni-Cart: Extraction complete. (${articleText.length} characters)`);
+const sourceTitle = (document.title || '').trim();
+console.log(`Omni-Cart: Extraction complete. (${articleText.length} characters, title: "${sourceTitle}")`);
 
 // 6. Send the extracted payload back to the React UI / Background script
 chrome.runtime.sendMessage({
   sourceType: 'article',
-  data: articleText
+  data: articleText,
+  sourceTitle
 });
 })();

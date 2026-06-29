@@ -56,8 +56,10 @@ export function BuildProvider({ children }) {
   const [scrapeError, setScrapeError] = useState(null);
 
   const [inspirationVideos, setInspirationVideos] = useState([]);
+  const [inspirationArticles, setInspirationArticles] = useState([]);
   const [inspirationLoading, setInspirationLoading] = useState(false);
   const [inspirationError, setInspirationError] = useState(null);
+  const [sourceTitle, setSourceTitle] = useState('');
 
   const lastAppliedScrapeRef = useRef('');
   const buildSlotsRef = useRef(buildSlots);
@@ -121,18 +123,26 @@ export function BuildProvider({ children }) {
     }
   }, []);
 
+  const sourceTitleRef = useRef('');
+  sourceTitleRef.current = sourceTitle;
+
   const refreshInspiration = useCallback(async () => {
     const components = slotsToComponentList(buildSlotsRef.current);
     if (!components.length) {
       setInspirationVideos([]);
+      setInspirationArticles([]);
       return;
     }
 
     setInspirationLoading(true);
     setInspirationError(null);
 
+    const title = sourceTitleRef.current?.trim();
+    const query = title
+      ? `DIY ${title} tutorial`
+      : `DIY ${components.slice(0, 2).map((c) => c.name).join(' ')} project tutorial`;
+
     try {
-      const query = `${components[0].name} tutorial`;
       const response = await fetch(`${API_BASE_URL}/fetch-inspiration`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -146,9 +156,11 @@ export function BuildProvider({ children }) {
 
       const data = await response.json();
       setInspirationVideos(data.videos || []);
+      setInspirationArticles(data.articles || []);
     } catch (err) {
       setInspirationError(err.message);
       setInspirationVideos([]);
+      setInspirationArticles([]);
     } finally {
       setInspirationLoading(false);
     }
@@ -173,6 +185,7 @@ export function BuildProvider({ children }) {
     (cart, source = 'ingestion') => {
       const normalizedCart = normalizeImportCart(cart, source);
       setImportedCart(normalizedCart);
+      setSourceTitle(normalizedCart.sourceTitle || '');
 
       if (normalizedCart.components.length > 0) {
         hydrateFromComponents(normalizedCart.components, {
@@ -325,9 +338,11 @@ export function BuildProvider({ children }) {
         estimatedTotal,
         refreshScrape,
         inspirationVideos,
+        inspirationArticles,
         inspirationLoading,
         inspirationError,
         refreshInspiration,
+        sourceTitle,
         importCart,
         clearImportedCart,
         mergeComponentsFromIngestion,

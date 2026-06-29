@@ -44,7 +44,7 @@ function CompatibilityBanner({ conflict, conflictResolved, ingestedFromScan }) {
 }
 
 function ConflictResolutionPanel({ conflict, onResolve }) {
-  const { alternative, physicsExplanation } = conflict;
+  const { alternative, physicsExplanation, reason } = conflict;
 
   return (
     <Card variant="bright" className="mb-6">
@@ -55,7 +55,16 @@ function ConflictResolutionPanel({ conflict, onResolve }) {
             <button type="button" className="text-xs text-slate-400 underline hover:text-accent-bright">Why?</button>
           </Tooltip>
         </div>
-        <p className="text-xs text-slate-400 mt-2 leading-relaxed">{physicsExplanation}</p>
+        {reason && (
+          <div className="mt-3 p-3 rounded-lg border border-accent/40 bg-surface-base/60 flex gap-3">
+            <span className="text-accent-bright text-lg leading-none shrink-0" aria-hidden>⚡</span>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-accent-bright font-bold mb-1">Tutor</p>
+              <p className="text-xs text-slate-200 leading-relaxed">{reason}</p>
+            </div>
+          </div>
+        )}
+        <p className="text-xs text-slate-500 mt-3 leading-relaxed">{physicsExplanation}</p>
       </div>
       <div className="p-4 flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="flex-1">
