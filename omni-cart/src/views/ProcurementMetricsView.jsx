@@ -110,7 +110,98 @@ function ScraperResultsTable({ listings, loading }) {
   );
 }
 
-function InvoiceModal({ lineItems, total, onClose }) {
+function renderInvoiceCanvas({ lineItems, total, buildName }) {
+  const scale = 2;
+  const width = 720;
+  const padX = 48;
+  const headerH = 110;
+  const rowH = 36;
+  const footerH = 90;
+  const height = headerH + rowH * (lineItems.length + 1) + footerH;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width * scale;
+  canvas.height = height * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(0, 0, width, height);
+
+  ctx.fillStyle = '#f5b800';
+  ctx.font = 'bold 24px system-ui, -apple-system, sans-serif';
+  ctx.fillText('Omni-Cart — Invoice', padX, 48);
+
+  ctx.fillStyle = '#94a3b8';
+  ctx.font = '13px system-ui, -apple-system, sans-serif';
+  ctx.fillText(buildName || 'Bill of Materials', padX, 72);
+  ctx.fillText(new Date().toLocaleString(), padX, 92);
+
+  let y = headerH;
+  ctx.fillStyle = '#64748b';
+  ctx.font = 'bold 11px system-ui, sans-serif';
+  ctx.fillText('ITEM', padX, y);
+  ctx.fillText('QTY', width - padX - 180, y);
+  ctx.textAlign = 'right';
+  ctx.fillText('PRICE', width - padX, y);
+  ctx.textAlign = 'left';
+  y += 12;
+  ctx.strokeStyle = '#334155';
+  ctx.beginPath();
+  ctx.moveTo(padX, y);
+  ctx.lineTo(width - padX, y);
+  ctx.stroke();
+  y += 8;
+
+  ctx.font = '14px system-ui, sans-serif';
+  lineItems.forEach((item) => {
+    ctx.fillStyle = '#e2e8f0';
+    ctx.fillText(item.name, padX, y + 18);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(String(item.qty), width - padX - 180, y + 18);
+    ctx.fillStyle = '#f5b800';
+    ctx.textAlign = 'right';
+    ctx.fillText(`PHP ${(item.qty * item.unitPrice).toLocaleString()}`, width - padX, y + 18);
+    ctx.textAlign = 'left';
+    y += rowH;
+    ctx.strokeStyle = '#1e293b';
+    ctx.beginPath();
+    ctx.moveTo(padX, y);
+    ctx.lineTo(width - padX, y);
+    ctx.stroke();
+  });
+
+  y += 16;
+  ctx.fillStyle = '#e2e8f0';
+  ctx.font = 'bold 16px system-ui, sans-serif';
+  ctx.fillText('TOTAL', padX, y + 12);
+  ctx.fillStyle = '#f5b800';
+  ctx.font = 'bold 22px system-ui, sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText(`PHP ${total.toLocaleString()}`, width - padX, y + 14);
+  ctx.textAlign = 'left';
+
+  return canvas;
+}
+
+function InvoiceModal({ lineItems, total, buildName, onClose }) {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const canvas = renderInvoiceCanvas({ lineItems, total, buildName });
+      const link = document.createElement('a');
+      const safeName = (buildName || 'bento-invoice').replace(/[^a-z0-9-_]+/gi, '_');
+      link.download = `${safeName}-invoice.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70" onClick={onClose}>
       <div
@@ -147,6 +238,12 @@ function InvoiceModal({ lineItems, total, onClose }) {
             <span>Total</span>
             <span className="text-accent text-lg">₱{total.toLocaleString()}</span>
           </div>
+        </div>
+        <div className="px-6 py-4 border-t border-surface-card flex justify-end gap-2">
+          <Button variant="ghost" size="sm" onClick={onClose}>Close</Button>
+          <Button size="sm" onClick={handleDownload} disabled={downloading}>
+            {downloading ? 'Generating…' : 'Download PNG'}
+          </Button>
         </div>
       </div>
     </div>
@@ -243,6 +340,7 @@ export default function ProcurementMetricsView() {
         <InvoiceModal
           lineItems={invoiceLineItems}
           total={estimatedTotal}
+          buildName={buildName}
           onClose={() => setShowInvoice(false)}
         />
       )}

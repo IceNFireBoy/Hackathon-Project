@@ -76,8 +76,124 @@ export default function IngestionView({ onNavigate }) {
     }
   };
 
+  const PACKAGE_TYPE_RULES = [
+    [/BATTERY|BATT/i, 'Battery'],
+    [/LED/i, 'LED'],
+    [/RES/i, 'Resistor'],
+    [/CAP/i, 'Capacitor'],
+    [/IND|INDUCTOR/i, 'Inductor'],
+    [/DIODE/i, 'Diode'],
+    [/TRANSISTOR|TO-?92|SOT-?23/i, 'Transistor'],
+    [/CRYSTAL|XTAL|OSC/i, 'Crystal'],
+    [/SWITCH|TACT/i, 'Switch'],
+    [/HEADER|CONN|PINHD|JST/i, 'Connector'],
+  ];
+
+  const REFDES_TYPE = {
+    R: 'Resistor',
+    C: 'Capacitor',
+    L: 'Inductor',
+    D: 'Diode',
+    LED: 'LED',
+    Q: 'Transistor',
+    U: 'IC',
+    IC: 'IC',
+    BAT: 'Battery',
+    BT: 'Battery',
+    SW: 'Switch',
+    S: 'Switch',
+    J: 'Connector',
+    P: 'Connector',
+    Y: 'Crystal',
+    X: 'Crystal',
+    F: 'Fuse',
+    T: 'Transformer',
+    M: 'Motor',
+  };
+
+  const inferComponentType = (name, packageAttr) => {
+    if (packageAttr) {
+      for (const [pattern, type] of PACKAGE_TYPE_RULES) {
+        if (pattern.test(packageAttr)) return type;
+      }
+    }
+    if (name) {
+      const prefix = name.match(/^[A-Za-z]+/)?.[0]?.toUpperCase();
+      if (prefix && REFDES_TYPE[prefix]) return REFDES_TYPE[prefix];
+    }
+    return null;
+  };
+
+  const buildBrdLabel = (el) => {
+    const value = (el.getAttribute('value') || '').trim();
+    const name = (el.getAttribute('name') || '').trim();
+    const pkg = (el.getAttribute('package') || '').trim();
+    const type = inferComponentType(name, pkg);
+
+    if (value && type) return `${value} ${type}`;
+    if (type) return type;
+    if (value) return value;
+    return name || null;
+  };
+
+  const parseBrdFile = (file) =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('Failed to read .brd file'));
+      reader.onload = (event) => {
+        try {
+          const text = event.target.result;
+          const doc = new DOMParser().parseFromString(text, 'application/xml');
+          if (doc.querySelector('parsererror')) {
+            reject(new Error('Invalid .brd XML — file may be corrupted'));
+            return;
+          }
+
+          const tally = new Map();
+          doc.querySelectorAll('elements > element').forEach((el) => {
+            const label = buildBrdLabel(el);
+            if (!label) return;
+            tally.set(label, (tally.get(label) || 0) + 1);
+          });
+
+          const components = Array.from(tally, ([name, quantity]) => ({
+            name,
+            quantity,
+            confidence_score: 1.0,
+          }));
+
+          if (!components.length) {
+            reject(new Error('No <element> tags found in this .brd file'));
+            return;
+          }
+
+          resolve({
+            components,
+            optimized_maps_query: components.slice(0, 3).map((c) => c.name).join(' '),
+          });
+        } catch (err) {
+          reject(err);
+        }
+      };
+      reader.readAsText(file);
+    });
+
   const processFile = async (file) => {
     const fileType = file.type;
+    const isBrd = file.name.toLowerCase().endsWith('.brd');
+
+    if (isBrd) {
+      setStatusText(`Parsing BRD: ${file.name}...`);
+      try {
+        const parsed = await parseBrdFile(file);
+        setExtractedCart(parsed);
+        importCart(parsed, 'ingestion');
+        setStatusText('BRD parsed locally. Click or drag another schematic to scan');
+      } catch (err) {
+        setStatusText(`BRD Parsing Error: ${err.message}`);
+      }
+      return;
+    }
 
     if (fileType === 'image/jpeg' || fileType === 'image/png') {
       setStatusText(`Processing Image: ${file.name}...`);
@@ -96,7 +212,7 @@ export default function IngestionView({ onNavigate }) {
         setStatusText(`PDF Parsing Error: ${err.message}`);
       }
     } else {
-      setStatusText('Unsupported file format. Please upload .png, .jpeg, or .pdf.');
+      setStatusText('Unsupported file format. Please upload .png, .jpeg, .pdf, or .brd.');
     }
   };
 
@@ -126,7 +242,7 @@ export default function IngestionView({ onNavigate }) {
         ref={fileInputRef}
         onChange={handleFileInput}
         className="hidden"
-        accept=".png,.jpg,.jpeg,.pdf"
+        accept=".png,.jpg,.jpeg,.pdf,.brd"
       />
 
       <div
@@ -163,7 +279,7 @@ export default function IngestionView({ onNavigate }) {
             <p className={`text-base font-medium ${isDragging ? 'text-accent' : 'text-slate-300'}`}>
               {statusText}
             </p>
-            <p className="text-xs text-slate-500 mt-2">Supports .PNG, .JPG, and .PDF</p>
+            <p className="text-xs text-slate-500 mt-2">Supports .PNG, .JPG, .PDF, and .BRD</p>
           </>
         )}
       </div>

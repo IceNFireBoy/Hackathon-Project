@@ -85,12 +85,30 @@ export function detectVoltageConflict(buildSlots) {
   const mcu = fiveVDevices[0];
   const sensor = threeThreeOnly[0];
 
+  const mcuV = mcu.logicVoltage ?? 5;
+  const sensorV = sensor.logicVoltage ?? 3.3;
+  const higherDevice = mcuV >= sensorV ? mcu : sensor;
+  const lowerDevice = mcuV >= sensorV ? sensor : mcu;
+  const higherV = Math.max(mcuV, sensorV);
+  const lowerV = Math.min(mcuV, sensorV);
+  const delta = +(higherV - lowerV).toFixed(2);
+
+  let reason;
+  if (delta >= 1.5) {
+    reason = `OVERVOLTAGE — ${higherDevice.name} drives ${higherV}V signals, exceeding the ${lowerV}V absolute-maximum rating on ${lowerDevice.name}. This will permanently damage its input pins. Use a bidirectional logic level shifter to step ${higherV}V down to ${lowerV}V safely.`;
+  } else if (delta >= 0.5) {
+    reason = `UNDERDRIVEN LOGIC — ${lowerDevice.name} outputs ${lowerV}V, which may not cross the logic-HIGH threshold on ${higherDevice.name}'s ${higherV}V inputs. No damage, but expect missed bits and unreliable communication. A level shifter will translate ${lowerV}V → ${higherV}V cleanly.`;
+  } else {
+    reason = `Borderline mismatch (${delta}V) between ${higherDevice.name} and ${lowerDevice.name}. Likely to work, but a level shifter is recommended for production reliability.`;
+  }
+
   return {
     id: 'conflict-i2c-voltage',
     severity: 'critical',
     type: 'voltage_mismatch',
     message: `${sensor.name} (${sensor.voltage}) on ${mcu.name} bus (${mcu.voltage} logic)`,
     affectedSlots: [mcu.slotId, sensor.slotId],
+    reason,
     physicsExplanation:
       'I²C/SPI on 5V microcontrollers expose 5V logic levels. 3.3V-only sensors exceed absolute maximum input ratings when tied directly. Use a bidirectional logic level shifter between domains.',
     alternative: {
