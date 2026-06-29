@@ -212,6 +212,36 @@ export function BuildProvider({ children }) {
     [hydrateFromComponents]
   );
 
+  const replaceComponent = useCallback((oldId, newComponent) => {
+    setBuildSlots((prev) => {
+      if (!prev[oldId]) return prev;
+      const newName = (newComponent.name || '').toLowerCase();
+      const duplicateElsewhere = Object.entries(prev).some(
+        ([id, slot]) => id !== oldId && (slot.name || '').toLowerCase() === newName
+      );
+      if (duplicateElsewhere) {
+        const { [oldId]: _drop, ...rest } = prev;
+        return rest;
+      }
+      const formatVoltage = (v) => {
+        if (v == null) return prev[oldId].voltage || '—';
+        if (typeof v === 'number') return `${v}V`;
+        if (v === 'both') return '3.3V / 5V';
+        return String(v);
+      };
+      return {
+        ...prev,
+        [oldId]: {
+          ...prev[oldId],
+          name: newComponent.name,
+          voltage: formatVoltage(newComponent.voltage),
+          price: newComponent.price ?? prev[oldId].price,
+          specs: newComponent.note || prev[oldId].specs,
+        },
+      };
+    });
+  }, []);
+
   const resolveConflict = useCallback((alternative) => {
     setBuildSlots((prev) => ({
       ...prev,
@@ -346,6 +376,7 @@ export function BuildProvider({ children }) {
         importCart,
         clearImportedCart,
         mergeComponentsFromIngestion,
+        replaceComponent,
         resolveConflict,
         saveToArchive,
         removeSavedBuild,

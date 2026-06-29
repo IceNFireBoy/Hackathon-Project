@@ -301,7 +301,7 @@ export default function ProcurementMetricsView() {
     <div className="max-w-5xl mx-auto animate-fade-in-up">
       <PageHeader title="Procurement & Metrics" subtitle={buildName}>
         <Button size="sm" onClick={() => setShowInvoice(true)} disabled={scrapeLoading || !components.length}>
-          Generate PDF Invoice
+          Generate PNG Invoice
         </Button>
       </PageHeader>
 
