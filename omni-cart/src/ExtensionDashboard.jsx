@@ -20,6 +20,7 @@ function ExtensionDashboard() {
   const [sortMode, setSortMode] = useState('trusted');
   const [mapIsVisible, setMapIsVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sourceTitle, setSourceTitle] = useState('');
 
   const formatResult = (result) => {
     const formattedComponents = result.components.map((comp) => ({
@@ -42,6 +43,7 @@ function ExtensionDashboard() {
 
       if (message.sourceType && message.data) {
         setScanStatus('Analyzing with AI...');
+        if (message.sourceTitle) setSourceTitle(message.sourceTitle);
         try {
           const result = await analyze(message);
           formatResult(result);
@@ -141,6 +143,7 @@ function ExtensionDashboard() {
         .filter((component) => component.checked !== false)
         .map(({ checked, ...component }) => component),
       optimized_maps_query: searchQuery || 'electronic components shop',
+      sourceTitle,
     };
     const url = getImportUrl(WEB_DASHBOARD_URL, cartForImport);
 

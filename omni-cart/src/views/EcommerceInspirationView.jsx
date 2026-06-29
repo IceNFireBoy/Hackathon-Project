@@ -28,7 +28,8 @@ function sortListings(listings, sortBy) {
 export default function EcommerceInspirationView() {
   const {
     scrapeListings, scrapeLoading, scrapeError, refreshScrape,
-    inspirationVideos, inspirationLoading, inspirationError,
+    inspirationVideos, inspirationArticles, inspirationLoading, inspirationError,
+    sourceTitle,
   } = useBuildContext();
   const [storeFilter, setStoreFilter] = useState('all');
   const [sortBy, setSortBy] = useState('price-asc');
@@ -61,13 +62,18 @@ export default function EcommerceInspirationView() {
       />
 
       <section className="mb-10">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-2">
           <h2 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Related Tutorials &amp; Inspiration</h2>
           <div className="flex gap-2">
             <Button variant="ghost" size="sm" onClick={() => scrollCarousel(-1)}>Prev</Button>
             <Button variant="ghost" size="sm" onClick={() => scrollCarousel(1)}>Next</Button>
           </div>
         </div>
+        {sourceTitle && (
+          <p className="text-xs text-slate-500 mb-4">
+            Contextual search from source page: <span className="text-accent-bright">"{sourceTitle}"</span>
+          </p>
+        )}
 
         <div
           ref={carouselRef}
@@ -75,9 +81,18 @@ export default function EcommerceInspirationView() {
           style={{ scrollbarWidth: 'thin' }}
         >
           {inspirationLoading && (
-            <div className="w-full py-4">
-              <SkeletonCard rows={3} tint="accent" />
-            </div>
+            <>
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="snap-start shrink-0 w-64 oc-card overflow-hidden animate-pulse">
+                  <div className="aspect-video bg-surface-card/60" />
+                  <div className="p-3 space-y-2">
+                    <div className="h-3 bg-surface-card/60 rounded w-5/6" />
+                    <div className="h-3 bg-surface-card/40 rounded w-3/5" />
+                    <div className="h-2 bg-surface-card/30 rounded w-2/5 mt-2" />
+                  </div>
+                </div>
+              ))}
+            </>
           )}
 
           {!inspirationLoading && inspirationError && (
@@ -86,7 +101,7 @@ export default function EcommerceInspirationView() {
             </Card>
           )}
 
-          {!inspirationLoading && !inspirationError && (inspirationVideos?.length === 0) && (
+          {!inspirationLoading && !inspirationError && inspirationVideos?.length === 0 && inspirationArticles?.length === 0 && (
             <p className="text-sm text-slate-500 py-4 pl-1">No tutorials found for this build yet.</p>
           )}
 
@@ -98,16 +113,44 @@ export default function EcommerceInspirationView() {
               rel="noopener noreferrer"
               className="snap-start shrink-0 w-64 oc-card overflow-hidden cursor-pointer hover:border-accent/30 transition-colors"
             >
-              <div className="aspect-video overflow-hidden">
+              <div className="aspect-video overflow-hidden relative">
                 <img
                   src={video.thumbnailUrl}
                   alt={video.title}
                   className="w-full h-full object-cover"
                 />
+                <span className="absolute top-2 left-2 text-[10px] uppercase tracking-wider font-bold bg-black/70 text-accent-bright px-2 py-0.5 rounded">Video</span>
               </div>
               <div className="p-3">
                 <p className="text-sm font-medium text-slate-200 line-clamp-2">{video.title}</p>
                 <p className="text-xs text-slate-500 mt-1">{video.channel}</p>
+              </div>
+            </a>
+          ))}
+
+          {!inspirationLoading && !inspirationError && inspirationArticles?.map((article) => (
+            <a
+              key={article.id}
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="snap-start shrink-0 w-64 oc-card overflow-hidden cursor-pointer hover:border-accent/30 transition-colors"
+            >
+              <div className="aspect-video overflow-hidden bg-surface-card/50 relative">
+                {article.thumbnailUrl ? (
+                  <img
+                    src={article.thumbnailUrl}
+                    alt={article.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-accent-bright text-3xl">📄</div>
+                )}
+                <span className="absolute top-2 left-2 text-[10px] uppercase tracking-wider font-bold bg-black/70 text-accent-bright px-2 py-0.5 rounded">Article</span>
+              </div>
+              <div className="p-3">
+                <p className="text-sm font-medium text-slate-200 line-clamp-2">{article.title}</p>
+                <p className="text-xs text-slate-500 mt-1 truncate">{article.source}</p>
               </div>
             </a>
           ))}

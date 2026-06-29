@@ -30,6 +30,7 @@ export function normalizeImportCart(cart, source = 'extension') {
     importedAt: cart?.importedAt || new Date().toISOString(),
     components,
     optimized_maps_query: cart?.optimized_maps_query || 'electronic components shop',
+    sourceTitle: cart?.sourceTitle || '',
   };
 }
 
