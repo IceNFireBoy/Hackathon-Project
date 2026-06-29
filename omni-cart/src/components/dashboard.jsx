@@ -2,6 +2,7 @@ const NAV_ITEMS = [
   { id: 'ingestion', label: 'Ingestion Zone' },
   { id: 'builder', label: "Anti-Fry Matrix" },
   { id: 'metrics', label: 'Procurement' },
+  { id: 'stock', label: 'Stock Signals' },
   { id: 'archive', label: 'Saved Builds' },
   { id: 'commerce', label: 'E-Commerce Aggregator' },
 ];

@@ -164,3 +164,78 @@ export const SAVED_BUILDS = [
 ];
 
 export const ALL_TAGS = ['robotics', 'iot', 'classroom'];
+
+export const COMMUNITY_STOCK_REPORTS = [
+  {
+    id: 'stock-001',
+    partName: 'Arduino Uno R3',
+    storeName: 'Alexan SM North EDSA',
+    area: 'Quezon City',
+    sourced: true,
+    lastSeen: '2 hours ago',
+    reportCount: 18,
+    probability: 0.86,
+    note: 'Usually stocked near the microcontroller shelf.',
+  },
+  {
+    id: 'stock-002',
+    partName: 'HC-SR04 Ultrasonic',
+    storeName: 'Deeco Electronics Cubao',
+    area: 'Quezon City',
+    sourced: true,
+    lastSeen: 'yesterday',
+    reportCount: 11,
+    probability: 0.78,
+    note: 'Ask for ultrasonic sensor module, not distance sensor.',
+  },
+  {
+    id: 'stock-003',
+    partName: 'Jumper Wire Kit',
+    storeName: 'Makerlab Electronics',
+    area: 'Mandaluyong',
+    sourced: true,
+    lastSeen: '3 days ago',
+    reportCount: 24,
+    probability: 0.91,
+    note: 'Male-to-male and mixed kits were both reported.',
+  },
+  {
+    id: 'stock-004',
+    partName: 'BMP280 Barometric Sensor',
+    storeName: 'e-Gizmo Mechatronix',
+    area: 'Pasig',
+    sourced: false,
+    lastSeen: 'last week',
+    reportCount: 7,
+    probability: 0.42,
+    note: 'Recent reports suggest BME280 is easier to find here.',
+  },
+  {
+    id: 'stock-005',
+    partName: '4-Channel Logic Level Shifter',
+    storeName: 'Deeco Electronics Cubao',
+    area: 'Quezon City',
+    sourced: true,
+    lastSeen: '4 days ago',
+    reportCount: 9,
+    probability: 0.64,
+    note: 'Counter staff may list it as bidirectional level converter.',
+  },
+  {
+    id: 'stock-006',
+    partName: 'LiPo 11.1V 2200mAh',
+    storeName: 'Alexan SM North EDSA',
+    area: 'Quezon City',
+    sourced: false,
+    lastSeen: '2 weeks ago',
+    reportCount: 5,
+    probability: 0.31,
+    note: 'Battery stock is inconsistent; call first.',
+  },
+];
+
+export function getStockProbabilityLabel(probability) {
+  if (probability >= 0.8) return 'High stock signal';
+  if (probability >= 0.55) return 'Moderate stock signal';
+  return 'Low stock signal';
+}

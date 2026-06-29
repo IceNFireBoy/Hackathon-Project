@@ -180,6 +180,18 @@
             font-size: 11px;
             margin: 4px 0;
         }
+
+        .stock-signal {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255, 183, 0, 0.2);
+            color: #e2e8f0;
+            font-size: 11px;
+        }
+
+        .stock-signal strong {
+            color: #FFD000;
+        }
     </style>
 </head>
 
@@ -220,6 +232,7 @@
 
                     const userLoc = event.data.userLocation || { lat: 14.6507, lng: 121.1029 };
                     const sortMode = event.data.sortMode || 'trusted';
+                    const stockSignals = Array.isArray(event.data.stockSignals) ? event.data.stockSignals : [];
 
                     // NEW: Retrieve the AI-generated query
                     const aiQuery = event.data.optimizedQuery || "electronic components parts";
@@ -230,6 +243,27 @@
 
                     const directionsService = new DirectionsService();
                     const directionsRenderer = new DirectionsRenderer({ map: map, suppressMarkers: true });
+
+                    function escapeHtml(value) {
+                        return String(value || '')
+                            .replace(/&/g, '&amp;')
+                            .replace(/</g, '&lt;')
+                            .replace(/>/g, '&gt;')
+                            .replace(/"/g, '&quot;')
+                            .replace(/'/g, '&#039;');
+                    }
+
+                    function findStockSignal(placeName) {
+                        const lowerName = String(placeName || '').toLowerCase();
+                        return stockSignals
+                            .filter(signal => {
+                                const storeName = String(signal.storeName || '').toLowerCase();
+                                const primaryToken = storeName.split(/\s+/)[0];
+                                const placeToken = lowerName.split(/\s+/)[0];
+                                return lowerName.includes(primaryToken) || storeName.includes(placeToken);
+                            })
+                            .sort((a, b) => b.probability - a.probability)[0];
+                    }
 
                     function calculateAndDisplayRoute(place, isTopRank) {
                         directionsService.route({
@@ -243,6 +277,7 @@
                                 const infoDiv = document.getElementById('route-info');
 
                                 const ratingDisplay = place.rating ? `⭐ ${place.rating} (${place.userRatingCount} reviews)` : `New / Unrated`;
+                                const stockSignal = findStockSignal(place.displayName);
 
                                 let badgeDisplay = '';
                                 if (isTopRank) {
@@ -256,6 +291,12 @@
                                     ${badgeDisplay}
                                     <div class="rating-text">${ratingDisplay}</div>
                                     ${leg.distance.text} • ${leg.duration.text} drive
+                                    ${stockSignal ? `
+                                        <div class="stock-signal">
+                                            <strong>${Math.round(stockSignal.probability * 100)}% likely stocked</strong><br>
+                                            ${escapeHtml(stockSignal.partName)} - ${escapeHtml(stockSignal.lastSeen)} - ${stockSignal.reportCount} maker reports
+                                        </div>
+                                    ` : ''}
                                 `;
                                 infoDiv.style.display = 'block';
                             }

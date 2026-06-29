@@ -10,6 +10,7 @@ import {
 import { Button } from './components/ui';
 import { useAnalyzeParts } from './hooks/useAnalyzeParts';
 import { getImportUrl } from './utils/importBridge';
+import { COMMUNITY_STOCK_REPORTS } from './mocks';
 
 const WEB_DASHBOARD_URL = import.meta.env.VITE_WEB_DASHBOARD_URL || 'http://localhost:8888/';
 
@@ -100,6 +101,7 @@ function ExtensionDashboard() {
         userLocation,
         sortMode: activeMode,
         optimizedQuery: searchQuery,
+        stockSignals: COMMUNITY_STOCK_REPORTS,
       },
       '*'
     );

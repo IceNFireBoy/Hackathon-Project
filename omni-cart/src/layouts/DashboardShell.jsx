@@ -7,11 +7,13 @@ import AntiFryMatrixView from '../views/AntiFryMatrixView';
 import ProcurementMetricsView from '../views/ProcurementMetricsView';
 import SavedBuildsView from '../views/SavedBuildsView';
 import EcommerceInspirationView from '../views/EcommerceInspirationView';
+import CommunityStockView from '../views/CommunityStockView';
 
 const VIEW_MAP = {
   ingestion: IngestionView,
   builder: AntiFryMatrixView,
   metrics: ProcurementMetricsView,
+  stock: CommunityStockView,
   archive: SavedBuildsView,
   commerce: EcommerceInspirationView,
 };

@@ -1,5 +1,6 @@
 import { Button, Card, CardRow, ConfidencePill, SectionHeader, SkeletonCard } from './ui';
 import { useAnalyzeParts } from '../hooks/useAnalyzeParts';
+import { COMMUNITY_STOCK_REPORTS, getStockProbabilityLabel } from '../mocks';
 
 function statusColor(status) {
   if (status.includes('Error') || status.includes('failed')) return 'text-critical';
@@ -165,6 +166,16 @@ export function MapPanel({
   onSortChange,
   components = [],
 }) {
+  const componentNames = components.map((component) => component.name.toLowerCase());
+  const stockSignals = COMMUNITY_STOCK_REPORTS
+    .filter((report) =>
+      componentNames.some((name) => {
+        const reportPart = report.partName.toLowerCase();
+        return name.includes(reportPart) || reportPart.includes(name.split(/\s+/)[0]);
+      })
+    )
+    .sort((a, b) => b.probability - a.probability)
+    .slice(0, 3);
 
   return (
     <div className="p-3 pt-2 border-t border-surface-card/60 shrink-0 bg-surface-base z-10 flex flex-col space-y-2">
@@ -207,6 +218,33 @@ export function MapPanel({
         <Button className="w-full" size="lg" onClick={() => onFindLocally()}>
           Find Locally
         </Button>
+      )}
+
+      {mapIsVisible && stockSignals.length > 0 && (
+        <div className="space-y-2">
+          <SectionHeader title="Community Stock" count={stockSignals.length} variant="bright" className="mb-1" />
+          <div className="grid gap-2">
+            {stockSignals.map((signal) => (
+              <Card key={signal.id} className="p-2">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-slate-200 truncate">{signal.storeName}</p>
+                    <p className="text-[10px] text-slate-500 truncate">{signal.partName}</p>
+                  </div>
+                  <span className="text-xs font-black text-accent-bright shrink-0">
+                    {Math.round(signal.probability * 100)}%
+                  </span>
+                </div>
+                <div className="flex items-center justify-between gap-2 mt-1">
+                  <p className="text-[10px] text-slate-400 truncate">{signal.lastSeen} - {signal.reportCount} reports</p>
+                  <p className="text-[9px] uppercase tracking-wider text-accent font-bold shrink-0">
+                    {getStockProbabilityLabel(signal.probability)}
+                  </p>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
